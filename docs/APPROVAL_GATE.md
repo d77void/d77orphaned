@@ -43,7 +43,7 @@ Notes in *italics* record how phase 5 actually implemented or changed an item.
 | Hardware and system | `dmidecode` `pciutils` `usbutils` `hwinfo` `chntpw` `f3` `lynis` *(+ `acpid`)* |
 | Operations | `tmux` `vim` `less` `man-db` `lsof` `strace` `pv` `zstd` `p7zip` `squashfs-tools` `dialog` `chrony` `xtools-minimal` |
 
-\* `nmap` comes from the **nonfree** repository (NPSL license). The build must add `-r https://repo-default.voidlinux.org/current/nonfree`, because `mklive.sh` does not include nonfree by default. NPSL allows redistribution in a free ISO; the license will be reviewed before any publication.
+\* `nmap` comes from the **nonfree** repository (NPSL license). The build must add `-r https://repo-default.voidlinux.org/current/nonfree`, because `mklive.sh` does not include nonfree by default. NPSL allows redistribution in a free ISO; reviewed on 2026-11-07, see §9.
 
 ### 2.3 X11 graphics — pwm (16)
 `xorg-minimal` `xorg-input-drivers` `xorg-video-drivers` `xinit` `setxkbmap` `xauth` `dejavu-fonts-ttf` `terminus-font` `font-misc-misc` `pwm`† `d77-st`† `dmenu` `sxhkd` `dbus` `elogind` `polkit` *(implemented: `sxhkd` dropped — no sxhkdrc in the overlay; `dbus-x11` added for `dbus-launch`; `xmodmap` added — pwm needs it, see `TEST_REPORT.md`)*
@@ -144,3 +144,16 @@ LUKS2 persistence comes after the base PoC, as the RESEARCH_PLAN says (phase 5, 
 - **P1 — Network at boot:** `dhcpcd` enabled by default (Grml-style, network ready, but announces itself on the network at boot) or manual (`sv up dhcpcd`)? → **Enabled (D8).**
 - **P2 — Clock:** `chronyd` enabled (correct time in logs and hashes, but contacts NTP servers) or manual? → **Enabled (D9).**
 - **P3 — Approval:** do you approve the manifest (§2), exclusions (§3–4), reuse (§5) and test plan (§6) to move to phase 5? → **Approved (D10).**
+
+## 9. License review: `nmap` (NPSL 0.95)
+
+Reviewed 2026-11-07 against the license text shipped in the package (`nmap-7.99_1`, Void `nonfree`, `license="custom:nmap"`, `/usr/share/licenses/nmap/LICENSE`, "Nmap Public Source License Version 0.95"). This is a reading of the license, not legal advice.
+
+- **What NPSL is:** GPLv2 (Exhibit A) plus extra terms that take precedence where they conflict (§2). The extra terms mean Nmap cannot be redistributed under plain GPL, and the license is not OSI-approved. Void ships it in `nonfree`, and Debian and Fedora also treat it as non-free. So the ISO is not "100% free software", and the documentation must not claim that.
+- **Redistributing the unmodified binary in the ISO is allowed.** The GPL part permits it, and the NPSL adds no restriction on plain redistribution.
+- **The ISO is not a "derivative work" under NPSL §3.** §3 says that "including Nmap with other software in compressed or archival form does not trigger this provision", provided open decompression tools are widely available, which is the case for squashfs and ISO 9660. Nothing in d77orphaned integrates Nmap source, reads its data files (`nmap-os-db`, `nmap-service-probes`), parses its output, or ships it in a proprietary installer. Utumno, Kantele and the menus only launch programs the user picks.
+- **§6 (External Deployment)** applies only to services that run Nmap for other people, which the ISO does not do. **§7:** the name may be used to describe the origin ("includes Nmap"), not as branding. **§10 (Npcap)** concerns the Windows builds only.
+- **Obligations when the ISO is published:**
+  1. Keep the license text with the binary. **Done:** it is in the image (verified in a VM).
+  2. Make the corresponding source available (GPLv2 §3), for example by offering it from the same place as the ISO. The source of the binary is the upstream tarball `https://nmap.org/dist/nmap-7.99.tar.bz2` (sha256 `df512492…d51b2`, from Void's template) built with Void's `srcpkgs/nmap/template`, with no patches. **Not done yet**, and not specific to Nmap: every GPL program in the ISO (kernel, coreutils, …) has the same requirement. The usual way is a source archive or a written offer next to the download.
+- **Conclusion:** `nmap` can stay in a published ISO. Before publishing, set up the source offer (point 2) for all GPL software, and describe the image as containing non-free software (`nmap`).
