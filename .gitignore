@@ -16,3 +16,6 @@ packer/cloud-*/
 packer/vagrant-*/
 mklive-build*/
 mklive-generate_squashfs.trace.log
+__pycache__/
+*.pyc
+vmtest/
