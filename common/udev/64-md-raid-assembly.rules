@@ -1,4 +1,4 @@
-# D77orphaned: intentionally empty. Masks /usr/lib/udev/rules.d/64-md-raid-assembly.rules so the
+# d77orphaned: intentionally empty. Masks /usr/lib/udev/rules.d/64-md-raid-assembly.rules so the
 # live system never auto-assembles MD RAID / auto-activates LVM on target
 # disks after boot (rd.md=0 / rd.lvm=0 only cover the initramfs).
 # Assemble or activate by hand when you mean to:

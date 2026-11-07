@@ -1,15 +1,15 @@
-# D77orphaned — Proof of Concept
+# d77orphaned — Proof of Concept
 
 > **Status: PROTOTYPE (phase 5).** Gate approved on 2026-11-07 (`docs/APPROVAL_GATE.md`). Test results are in `docs/TEST_REPORT.md`; nothing beyond what is listed there has been tested.
 
 ## Vision
 
-D77orphaned is a **live recovery, diagnostics and analysis system** based on **Void Linux**, with a small, justified selection of security/pentesting tools for authorized use. Conceptual reference: **more Grml than Kali**. It is not an independent distribution, a general-purpose d77void variant, or a replacement for Kali/Parrot/BlackArch.
+d77orphaned is a **live recovery, diagnostics and analysis system** based on **Void Linux**, with a small, justified selection of security/pentesting tools for authorized use. Conceptual reference: **more Grml than Kali**. It is not an independent distribution, a general-purpose d77void variant, or a replacement for Kali/Parrot/BlackArch.
 
 ## Repository identity and boundaries
 
 - **New standalone Git repository `d77void/d77orphaned`**, in the same organization as `d77-immutable` and the other projects. It is not a subdirectory, branch or development workspace of the `d77void` repository.
-- **All D77orphaned experimentation and commits live exclusively in its own repository.** Sibling repositories are external dependencies, not places to work.
+- **All d77orphaned experimentation and commits live exclusively in its own repository.** Sibling repositories are external dependencies, not places to work.
 - Auditing `d77void`, `mkd77.sh` and the binary repository is **read-only**. If reusing code is useful, propose a local copy/adaptation in this repository, respecting provenance and license; never edit the original.
 - No agent may create or publish the remote repository without authorization; initially it may prepare the local Git directory and documentation, if asked.
 

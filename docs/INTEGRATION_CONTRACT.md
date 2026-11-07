@@ -13,14 +13,14 @@ The organization name and the sibling repositories are architectural context, no
 
 ## Main rule
 
-**D77orphaned consumes the d77void ecosystem; it does not own it.** d77void's code, configuration, packages and current users take precedence over this PoC's convenience.
+**d77orphaned consumes the d77void ecosystem; it does not own it.** d77void's code, configuration, packages and current users take precedence over this PoC's convenience.
 
 ## Explicitly preserve
 
 1. **d77void binary repository:** URL, structure, metadata, signatures/public keys, publishing policy, versions and compatibility. Do not duplicate or replace the repository; do not publish experimental builds without separate authorization.
 2. **`mkd77.sh`:** locate and document before using. Preserve the CLI, arguments, defaults, paths, package selection, build flow, boot logic, overlays, hooks, signing and behaviour for the existing ISOs, **to the extent they actually exist**. Do not assume all of these capabilities exist.
-3. **Graphical projects:** pwm/X11; wasp/Wayland with Utumno; the existing launcher and qsd77. Do not insert D77orphaned-specific code into shared components.
-4. **Configs and branding:** do not replace d77void's global files. Exclusive branding and presets live in D77orphaned overlays/configuration.
+3. **Graphical projects:** pwm/X11; wasp/Wayland with Utumno; the existing launcher and qsd77. Do not insert d77orphaned-specific code into shared components.
+4. **Configs and branding:** do not replace d77void's global files. Exclusive branding and presets live in d77orphaned overlays/configuration.
 5. **Security and secrets:** never copy private signing keys, tokens, passwords or personal data from previous builds.
 6. **Regression:** if a shared change ever becomes essential, create a separate proposal, rollback plan and tests of the existing variants before approval.
 
@@ -59,10 +59,10 @@ These questions require testing; **do not design a final layout or formatting to
 
 | Location | May contain | Must not contain |
 |---|---|---|
-| Existing d77void | General-purpose packages and tools, already-validated infrastructure | D77orphaned-only logic imposed on the other remasters |
-| D77orphaned | Manifest, overlay, branding, tests, documentation, future specific scripts | A permanent fork of the whole d77void infrastructure |
+| Existing d77void | General-purpose packages and tools, already-validated infrastructure | d77orphaned-only logic imposed on the other remasters |
+| d77orphaned | Manifest, overlay, branding, tests, documentation, future specific scripts | A permanent fork of the whole d77void infrastructure |
 | User's persistent partition | Personal data, scripts and configs, optionally encrypted | A replacement of the live root or a mandatory boot assumption |
 
 ## Change gate
 
-**All D77orphaned commits are made only in the `d77orphaned` repository.** If a need to change `d77void`, `d77-immutable` or another project ever arises, it is a separate request, outside the scope of this plan, subject to explicit authorization. Never make that change as a side effect of the PoC.
+**All d77orphaned commits are made only in the `d77orphaned` repository.** If a need to change `d77void`, `d77-immutable` or another project ever arises, it is a separate request, outside the scope of this plan, subject to explicit authorization. Never make that change as a side effect of the PoC.

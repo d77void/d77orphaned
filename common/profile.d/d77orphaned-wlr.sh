@@ -1,4 +1,4 @@
-# D77orphaned: wasp renders through scenefx, which needs EGL/GLES and, unlike
+# d77orphaned: wasp renders through scenefx, which needs EGL/GLES and, unlike
 # plain wlroots, refuses to start on software rendering (llvmpipe) unless this
 # is set — so without a usable GPU (VMs, odd hardware, nomodeset) the wasp
 # session died at once ("Software rendering detected ... couldn't create

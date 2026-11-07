@@ -94,7 +94,7 @@ Notes in *italics* record how phase 5 actually implemented or changed an item.
 | `dracut/vmklive/` | copy | `adduser.sh`: no `sshd` enabled; new `nogui.sh` hook (D7); polkit kept (the live user already has passwordless `sudo`; the real risk was automounting, which loses its tools) |
 | `dracut/autoinstaller/` | **do not copy** | `mklive.sh` references it in 3 places (`copy_autoinstaller_files`, `--force-add`, `rm -r`) → remove those references in the copy. It only triggers with `root=vai`, but it is a **destructive** installer inside the initramfs; it must not exist in a forensic ISO |
 | `dracut/netmenu/` | do not copy | not used by `mklive.sh` |
-| `grub/`, `isolinux/` | copy | title `D77orphaned`; "console only" entry with `d77.nogui`; speech entries removed (phase 2); `rd.lvm=0` added to the cmdline |
+| `grub/`, `isolinux/` | copy | title `d77orphaned`; "console only" entry with `d77.nogui`; speech entries removed (phase 2); `rd.lvm=0` added to the cmdline |
 | `keys/` (3 public keys) | copy | — |
 | `data/splash.png` | copy, or our own splash | own branding when it exists |
 | `common/quickshell-d77/greeter/` | copy into the overlay `/etc/greetd/…` | `config.toml` with `[initial_session]` (pwm) |

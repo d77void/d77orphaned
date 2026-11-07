@@ -1,5 +1,5 @@
 #!/bin/sh
-# D77orphaned post-setup, run by mklive.sh (-x) on the finished rootfs ($1),
+# d77orphaned post-setup, run by mklive.sh (-x) on the finished rootfs ($1),
 # before the initramfs is generated.
 #
 # Void's runit core-services (03-filesystems.sh) run `vgchange --sysinit -a ay`
@@ -13,11 +13,11 @@ ROOTFS="$1"
 conf="$ROOTFS/etc/lvm/lvm.conf"
 [ -f "$conf" ] || { echo "postsetup: $conf not found" >&2; exit 1; }
 
-grep -q 'D77orphaned' "$conf" && exit 0
+grep -q 'd77orphaned' "$conf" && exit 0
 
 sed -i \
-	-e '/^global {/a\	# D77orphaned: no event-based autoactivation.\n\tevent_activation = 0' \
-	-e '/^activation {/a\	# D77orphaned: never auto-activate LVs (vgchange -a ay in runit core-services).\n\tauto_activation_volume_list = []' \
+	-e '/^global {/a\	# d77orphaned: no event-based autoactivation.\n\tevent_activation = 0' \
+	-e '/^activation {/a\	# d77orphaned: never auto-activate LVs (vgchange -a ay in runit core-services).\n\tauto_activation_volume_list = []' \
 	"$conf"
 
 if ! grep -q '^	auto_activation_volume_list = \[\]' "$conf" ||

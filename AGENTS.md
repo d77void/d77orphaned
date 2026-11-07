@@ -2,7 +2,7 @@
 
 ## Mission
 
-Plan and, **only after authorization**, implement the D77orphaned PoC: a Void Linux live system aimed at recovery, diagnostics, careful forensic analysis and a limited selection of authorized pentesting.
+Plan and, **only after authorization**, implement the d77orphaned PoC: a Void Linux live system aimed at recovery, diagnostics, careful forensic analysis and a limited selection of authorized pentesting.
 
 ## Rule zero: PLAN FIRST
 
@@ -34,8 +34,8 @@ In both cases, **do not start the ports**. These numbers are warning signs, not 
 - The source repository **`d77void/d77orphaned` is new and independent**, a sibling of `d77-immutable` in the `d77void` GitHub organization. Never work inside `d77void`, on a branch of that project, or inside `d77-immutable`.
 - The d77void **binary** repository is shared/reused, not copied or reorganized for the PoC's convenience.
 - **Never modify the original `mkd77.sh` or any files in sibling repositories as part of this project.** Investigate read-only. If needed, propose a local copy/adaptation or a builder of our own in `d77orphaned`, subject to approval, license and traceable origin.
-- Do not change global Utumno, qsd77, pwm or wasp configuration to accommodate a need exclusive to D77orphaned.
-- Prefer overlays and configuration **local to D77orphaned**; avoid hardcoding and circular dependencies.
+- Do not change global Utumno, qsd77, pwm or wasp configuration to accommodate a need exclusive to d77orphaned.
+- Prefer overlays and configuration **local to d77orphaned**; avoid hardcoding and circular dependencies.
 - Do not publish packages to the d77void repository without a separate review of security, licenses, maintenance and impact on current users.
 
 ## Security and integrity

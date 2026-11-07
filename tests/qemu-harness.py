@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Host-side QEMU harness for the D77orphaned PoC tests (docs/APPROVAL_GATE.md §6).
+"""Host-side QEMU harness for the d77orphaned PoC tests (docs/APPROVAL_GATE.md §6).
 
 Drives a VM through its serial console (for commands) and the QEMU monitor
 (for screenshots and power-off). Works without KVM (pure TCG), just slower.

@@ -1,7 +1,7 @@
-# pwm — D77orphaned. Everything not set here keeps pwm's built-in default
+# pwm — d77orphaned. Everything not set here keeps pwm's built-in default
 # (terminal st, launcher dmenu_run). See /usr/share/pwm/config.toml.example.
 [apps]
 # The packaged /etc/xdg/pwm/startup.sh starts `udiskie -a` (automount),
-# conky, feh, xautolock+slock, redshift and sxhkd. D77orphaned must not
+# conky, feh, xautolock+slock, redshift and sxhkd. d77orphaned must not
 # automount target disks, so use a minimal script instead.
 startup_script = "/etc/d77orphaned/pwm-startup.sh"

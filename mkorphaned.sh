@@ -18,7 +18,7 @@ usage() {
 	cat <<-EOH
 	Usage: $PROGNAME [options ...] [-- mklive options ...]
 
-	Builds the D77orphaned live ISO (recovery, diagnostics, careful forensics).
+	Builds the d77orphaned live ISO (recovery, diagnostics, careful forensics).
 	Wrapper around mklive.sh, adapted from d77void's mkd77.sh (Daniel Azevedo).
 
 	OPTIONS
@@ -196,7 +196,7 @@ build_variant() {
 
 	# shellcheck disable=SC2086
 	./mklive.sh -a "$ARCH" -o "$IMG" -p "$PKGS" -S "$SERVICES" -I "$INCLUDEDIR" \
-		-T "D77orphaned" -x "$(pwd -P)/postsetup.sh" ${REPO} "$@"
+		-T "d77orphaned" -x "$(pwd -P)/postsetup.sh" ${REPO} "$@"
 
 	cleanup
 }

@@ -1,4 +1,4 @@
-# greetd — D77orphaned
+# greetd — d77orphaned
 [terminal]
 # VT 7: TTYs 1-6 stay free for the console.
 vt = 7
