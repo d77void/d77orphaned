@@ -2,4 +2,7 @@
 # live system never auto-assembles MD RAID / auto-activates LVM on target
 # disks after boot (rd.md=0 / rd.lvm=0 only cover the initramfs).
 # Assemble or activate by hand when you mean to:
-#   mdadm --assemble --readonly ...   |   vgchange -ay --readonly <vg>  (or lvchange -ay -pr)
+#   mdadm --assemble --readonly ...
+#   vgchange -ay --config 'activation { read_only_volume_list = [ "<vg>" ] }' <vg>
+# Not "vgchange --readonly" (it activates nothing) and not "lvchange -pr"
+# (it writes the permission into the LVM metadata on the disk).

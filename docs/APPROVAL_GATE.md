@@ -66,7 +66,7 @@ Notes in *italics* record how phase 5 actually implemented or changed an item.
 | `greetd` | enabled, except with `d77.nogui` | D5–D7 |
 | `dhcpcd` | enabled | D8 |
 | `chronyd` | enabled | D9 |
-| `sshd` | **disabled** | installed; start manually with `sv up sshd` after changing the password |
+| `sshd` | **disabled** | installed; after changing the passwords, enable it with `ln -s /etc/sv/sshd /var/service/` (`sv up sshd` fails: the service is not linked) |
 | `wpa_supplicant` | disabled | used manually or via dhcpcd |
 
 ## 3. Optional — phase 2 (not in the PoC)

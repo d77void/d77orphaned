@@ -49,14 +49,32 @@
 ### Defects found and fixed in this round
 
 5. **The build rewrote the host's GRUB configuration.** During the first build on the Acer, the host's `/boot/grub/grub.cfg` was regenerated (os-prober included, which also touched `/var/lib/os-prober/labels`). No other host files changed, and the user found the boot menu unchanged after a reboot. Cause, reproduced in a disposable VM with a stub `grub-mkconfig`: `mklive.sh` installs `memtest86+` into the helper root `void-target`, which has no `/bin/sh`. XBPS then runs the package's post-install script **on the host** (working directory `void-target`), and that script runs `grub-mkconfig -o /boot/grub/grub.cfg` whenever `/boot/grub` exists. Fix: `mkorphaned.sh` now runs the whole build in a private mount namespace with an empty tmpfs over `/boot`, so the script finds no `/boot/grub` and does nothing. It also fails the build if the host's `grub.cfg` changes. Verified by a rebuild: `grub-mkconfig` did not run, and the host's `grub.cfg` (mtime and size) and all other files under `/` were unchanged, with no build mounts left behind. **The same `mklive.sh` is inherited from d77void, so its builds very likely do the same (not verified there).**
-6. **pwm dies at startup about 5% of the time** (T5, and the T6 autologin failures). The error is `BadDrawable` on `X_CopyArea` while creating the status bar. penrose_ui creates the bar's window on its x11rb connection and draws to it through a separate Xlib connection. The X server orders requests only within one connection, so the first copy can arrive before the window exists, and Xlib's default handler exits the process. In the same VM, the pwm 0.6.7 binary failed 6 of 120 starts (3/60 with KMS, 3/60 with `nomodeset`). The rate does not depend on `nomodeset`; in phase 5 it only looked that way. Fix, outside this repository (D15): pwm branch `fix-bar-window-race` (commit `4ce82db`, not pushed) vendors penrose_ui 0.4.0 with one round trip after creating the window. That binary failed 0 of 120 starts in the same test. **The ISO still ships pwm 0.6.7** until a new pwm release is tagged and packaged.
+6. **pwm dies at startup about 5% of the time** (T5, and the T6 autologin failures). The error is `BadDrawable` on `X_CopyArea` while creating the status bar. penrose_ui creates the bar's window on its x11rb connection and draws to it through a separate Xlib connection. The X server orders requests only within one connection, so the first copy can arrive before the window exists, and Xlib's default handler exits the process. In the same VM, the pwm 0.6.7 binary failed 6 of 120 starts (3/60 with KMS, 3/60 with `nomodeset`). The rate does not depend on `nomodeset`; in phase 5 it only looked that way. Fix, outside this repository (D15): pwm branch `fix-bar-window-race` (commit `4ce82db`, not pushed) vendors penrose_ui 0.4.0 with one round trip after creating the window. That binary failed 0 of 120 starts in the same test. Released as **pwm 0.6.8** (see below).
 7. **No way out under `nomodeset` once the first session ends.** The greeter runs under dwl (wlroots), which cannot start without DRM, so greetd kept restarting it every ~10 s on a black screen. Fix (D16): with `nomodeset`, `dracut/vmklive/nomodeset.sh` switches greetd's `default_session` to `agreety --cmd /bin/bash`.
+
+### pwm 0.6.8 in the ISO
+
+- **pwm 0.6.8** (tag `0.6.8`, pwm `1aa0e8e`) built with xbps-src for x86_64 and x86_64-musl, signed and published to the d77void repositories on SourceForge. The published glibc and musl packages verified against the repository key, and the glibc one is identical to the local build.
+- **ISO:** rebuilt with the default repositories (SourceForge) under the build guard; pwm-0.6.8_1 came from SourceForge. 1,699,414,016 bytes, sha256 `ee49cd748b82306ad6c648872dfe935923c3ad5d43feffbf3d02e31e3612077e`. The host's `grub.cfg` was unchanged.
+
+| # | Test | Result | Evidence |
+|---|---|---|---|
+| — | pwm startup race | **PASS** | 0 of 120 starts failed (60 with KMS, 60 with `nomodeset`), against 6 of 120 with pwm 0.6.7 |
+| T5 | `nomodeset` | **PASS** | pwm up on vesa; after it ends, `agreety` on VT 7 and a shell after logging in |
+| T6 | autologin pwm → greeter → wasp + Utumno | **PASS (3/3)** | pwm running after autologin in all 3 runs; wasp, qsd77 and Utumno from the greeter in all 3 |
+
+### Corrections found while writing the user documentation
+
+8. **Read-only LVM advice was wrong.** The comments in the masked udev rules suggested `vgchange -ay --readonly` and `lvchange -ay -pr`. Tested in a disposable VM with an LVM volume group on a loop file: `vgchange --readonly` activates nothing, and `lvchange -pr` **changed the disk's hash** (it writes the permission into the metadata). `vgchange -ay --config 'activation { read_only_volume_list = [ "<vg>" ] }' <vg>` activated the LV read-only (`-Ri-a-`), writes failed, a `ro,noload` mount worked and the hash did not change. The comments now give that command. `cryptsetup open --readonly` on a LUKS2 container behaved the same way (read-only mapping, hash unchanged).
+9. **`sv up sshd` does not work** in the ISO (`unable to change to service directory`): `sshd` is not linked into `/var/service`. `APPROVAL_GATE.md` now says to enable it with `ln -s /etc/sv/sshd /var/service/` after changing the passwords.
+
+The user documentation is in [d77void/orphaned-docs](https://github.com/d77void/orphaned-docs) (site and SourceForge wiki).
 
 ## Open
 
-- **pwm release:** tag and package the pwm fix (D15), rebuild the ISO and rerun T5/T6.
 - **T12 real hardware:** still to do on the user's side (T480s/Libreboot): boot, pwm, wasp + Utumno with a real GPU, Wi-Fi via `wpa_supplicant`, the Kantele keyboard layout, and the `nomodeset` and console-only entries. No disks with data attached.
-- **Phase-5 T6 case** (wasp login ending in pwm): not reproduced in 6 runs with greetd logging to `/var/log/greetd` (the harness now sets that up). Treated as unexplained, not fixed.
+- **MD RAID read-only assembly** (`mdadm --assemble --readonly`): documented but not tested.
+- **Phase-5 T6 case** (wasp login ending in pwm): not reproduced in 9 runs with greetd logging to `/var/log/greetd` (the harness now sets that up). Treated as unexplained, not fixed.
 - **Cosmetic:**
   - on wasp with software rendering, the background shows leftovers of the greeter, and there is a black block left of Utumno's bar;
   - Utumno's network widget says "offline" because it reads NetworkManager state, which the ISO does not have; DHCP works.

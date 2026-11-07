@@ -167,7 +167,7 @@ xbps-query --repository=https://sourceforge.net/projects/d77void/files/d77void-r
 | D12 | 2026-11-07 | Kantele | **Added at the user's request** (settings GUI for pwm and wasp, incl. keyboard): +7 packages / ≈19 MiB. |
 | D13 | 2026-11-07 | Language | **All repository documentation in English**, for universality. |
 | D14 | 2026-11-07 | Build touched the host's `/boot/grub/grub.cfg` | **Guard in `mkorphaned.sh`:** build in a private mount namespace with a tmpfs over `/boot`, and fail if the host's `grub.cfg` changes. Root cause (memtest86+'s post-install run on the host) reproduced in a disposable VM first. See `TEST_REPORT.md`, defect 5. |
-| D15 | 2026-11-07 | pwm startup race (`BadDrawable`) | **Fix it in pwm itself**, as a separate change with its own authorization and a new package version, rather than a restart wrapper in D77orphaned. Branch `fix-bar-window-race` in the pwm repository; pushing, tagging and packaging still need the user's go-ahead. |
+| D15 | 2026-11-07 | pwm startup race (`BadDrawable`) | **Fix it in pwm itself**, as a separate change with its own authorization and a new package version, rather than a restart wrapper in D77orphaned. Released as pwm 0.6.8 (approved by the user) and published to the d77void repositories. |
 | D16 | 2026-11-07 | Greeter under `nomodeset` | **Text greeter:** with `nomodeset`, greetd's `default_session` becomes `agreety --cmd /bin/bash` (set in `dracut/vmklive/nomodeset.sh`); the pwm autologin stays. |
 
 **Note on D4 — what the greeter implies** [OBS/VER]:
