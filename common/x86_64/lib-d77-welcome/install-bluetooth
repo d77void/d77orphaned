@@ -1,4 +1,0 @@
-#!/bin/bash
-set -e
-
-sudo -A xbps-install -y bluez bluez-obex bluez-mesh blueman

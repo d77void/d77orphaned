@@ -1,6 +1,0 @@
-#!/bin/bash
-pipewire &
-xdg-user-dirs-update &
-xdg-user-dirs-gtk-update &
-~/./.auto.sh &
-/usr/libexec/polkit-mate-authentication-agent-1 &

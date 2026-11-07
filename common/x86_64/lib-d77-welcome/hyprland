@@ -1,4 +1,0 @@
-#!/bin/bash
-set -e
-
-sudo -A cp /usr/lib/lib-d77-welcome/hyprland-void.conf /etc/xbps.d/hyprland-void.conf && sudo -A xbps-install -Syu -y

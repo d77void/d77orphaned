@@ -1,4 +1,0 @@
-#!/bin/bash
-set -e
-
-sudo -A usermod $USER -G dbus,_flatpak -a

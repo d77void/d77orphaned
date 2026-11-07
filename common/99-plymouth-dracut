@@ -1,3 +1,0 @@
-#!/bin/bash
-VERSION="$1"
-dracut --force --kver "$VERSION"

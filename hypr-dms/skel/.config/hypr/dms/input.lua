@@ -1,1 +1,0 @@
--- Mouse, touchpad and keyboard settings. DMS rewrites this file from Settings.

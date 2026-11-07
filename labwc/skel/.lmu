@@ -1,3 +1,0 @@
-#!/bin/bash
-rm ~/.config/labwc/menu.xml && labwc-menu-generator -I >> ~/.config/labwc/menu.xml
-

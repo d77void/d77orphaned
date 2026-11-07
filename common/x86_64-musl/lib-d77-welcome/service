@@ -1,4 +1,0 @@
-#!/bin/bash
-set -e
-
-sudo -A  ln -s /etc/sv/bluetoothd /var/service/ && sudo -A ln -s /etc/sv/bluetooth-meshd /var/service/
