@@ -138,26 +138,12 @@ wasp.modkey = "alt"
 -- actually want running -- wasp has no opinion on wallpaper/idle/notifier
 -- daemons etc., same as upstream dwl.
 wasp.autostart = {
+-- d77orphaned: no udiskie (no automounting of target disks), no
+-- pipewire/polkit agent/xdg-user-dirs/.auto.sh/idle-lock -- not shipped.
 { "awww-daemon" },
 { "/usr/share/quickshell/utumno/wallpaper/./set-wallpaper.sh" },
 { "dunst" },
-{ "udiskie", "-a" },
-{ "pipewire" },
 { "sh", "-c", "qsd77 run -c utumno" },
--- Idle: lock with Utumno's lock screen (the same as super+t) after 5
--- minutes, screen off after 5.5 and back on with any input, and lock
--- before suspending. "locker" only locks (never unlocks), so running it
--- again while locked is harmless. wasp provides ext-idle-notify (for
--- swayidle), idle-inhibit (a full-screen video keeps it awake) and
--- wlr-output-power-management (for wlopm).
-{ "swayidle", "-w",
-  "timeout", "300", "qsd77 -c utumno locker",
-  "timeout", "330", "wlopm --off '*'", "resume", "wlopm --on '*'",
-  "before-sleep", "qsd77 -c utumno locker" },
-{ "/usr/libexec/polkit-mate-authentication-agent-1" },
-{ "sh", "-c", "xdg-user-dirs-update" },
-{ "sh", "-c", "xdg-user-dirs-gtk-update" },
-{ "sh", "-c", "~/./.auto.sh" },
 }
 
 -- Named scratchpads -- a hidden, toggleable floating window per slot.
@@ -275,12 +261,10 @@ bind({ "mod" },          "p",      "spawn-menu")
 
 	-- D77 --
 bind({ "super" }, "space", "spawn", { cmd = { "sh", "-c", "qsd77 -c utumno launcher" } })
-bind({ "super" }, "a", "spawn", { cmd = { "sh", "-c", "qsd77 -c utumno ollama" } })
 bind({ "super" }, "t", "spawn", { cmd = { "sh", "-c", "qsd77 -c utumno locker" } })
 bind({ "super" }, "x", "spawn", { cmd = { "sh", "-c", "qsd77 -c utumno session" } })
 bind({ "super" }, "y", "spawn", { cmd = { "sh", "-c", "qsd77 -c utumno wallpaper" } })
 
-bind({ "super" }, "r", "spawn", { cmd = { "d77run" } })
 	-- D77 --
 
 -- Media keys — dedicated hardware keys, so no modifier needed (they can't
@@ -300,7 +284,7 @@ bind({}, "XF86AudioMute",        "spawn", { cmd = { "amixer", "-q", "set", "Mast
 -- expand them. Region-select instead of full-screen needs `slurp` too (not
 -- installed on this machine) -- swap the cmd for:
 -- { "sh", "-c", 'grim -g "$(slurp)" ~/screenshot-$(date +%Y%m%d-%H%M%S).png' }
-bind({}, "Print", "spawn", { cmd = { "sh", "-c", "grim ~/screenshot-$(date +%Y%m%d-%H%M%S).png" } })
+-- d77orphaned: grim is not shipped, so no Print binding.
 
 -- Window navigation
 bind({ "mod" }, "j",    "focusstack", { dir = 1 })

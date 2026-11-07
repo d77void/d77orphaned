@@ -5,62 +5,44 @@ set -eu
 . ./lib.sh
 
 PROGNAME=$(basename "$0")
-ARCH=$(uname -m)
-IMAGES="awesome base bspwm cosmic dwm fluxbox gnome herbstluftwm hyprland i3wm jwm labwc leftwm lxqt mango niri openbox plasma pwm qtile river scroll somewm sway wayfire wmd77 xfce"
-TRIPLET=
+ARCH=x86_64
 REPO=
 DATE=$(date -u +%Y%m%d)
-MUSL=
-NC=
+
+# Binary repositories used on top of the official Void ones that mklive.sh
+# always appends. d77void: pwm, wasp, utumno, qsd77, dwl, d77-st, scenefx0.5.
+# nonfree: nmap. Order matters: earlier repositories take precedence.
+DEFAULT_REPOS="https://sourceforge.net/projects/d77void/files/d77void-repo https://repo-default.voidlinux.org/current/nonfree"
 
 usage() {
 	cat <<-EOH
 	Usage: $PROGNAME [options ...] [-- mklive options ...]
 
-	Wrapper script around mklive.sh for several standard flavors of live images.
-	Adds d77void-installer and other helpful utilities to the generated images.
-	adaptation of mkiso.sh by Daniel Azevedo (dani-77)
+	Builds the D77orphaned live ISO (recovery, diagnostics, careful forensics).
+	Wrapper around mklive.sh, adapted from d77void's mkd77.sh (Daniel Azevedo).
 
 	OPTIONS
-	 -a <arch>     Set architecture (or platform) in the image
-	 -b <variant>  One of base, awesome, bspwm, cosmic, dwm, fluxbox, gnome,
-	               herbstluftwm, hyprland, i3wm, jwm, labwc, leftwm, mango, niri,
-	               openbox, plasma, pwm, qsd77, qtile, river, scroll, somewm,
-	               spitfire, sway, wasp, wayfire, wmd77 or xfce.
-	               May be specified multiple times to build multiple variants.
 	 -d <date>     Override the datestamp on the generated image (YYYYMMDD format)
-	 -t <arch-date-variant>
-	               Equivalent to setting -a, -b, and -d
-	 -r <repo>     Use this XBPS repository. May be specified multiple times
-	 --musl        Build for musl libc (x86_64-musl paths, firefox instead of brave-bin)
-	 --nc          No calamares: use d77void-installer instead
+	 -r <repo>     Use this XBPS repository (in addition to the defaults).
+	               May be specified multiple times
+	 -n            Do not add the default extra repositories (d77void, nonfree)
 	 -h            Show this help and exit
 	 -V            Show version and exit
 
-	Other options can be passed directly to mklive.sh by specifying them after the --.
-	See mklive.sh -h for more details.
+	Default extra repositories:
+	 $DEFAULT_REPOS
+
+	Other options can be passed directly to mklive.sh by specifying them after the --
+	(e.g. -- -k pt-latin1 -l pt_PT.UTF-8). See mklive.sh -h for more details.
 	EOH
 }
 
-# Pre-process long options before getopts
-_args=()
-for _arg in "$@"; do
-	case "$_arg" in
-		--musl) MUSL=yes ;;
-		--nc)   NC=yes ;;
-		*)      _args+=("$_arg") ;;
-	esac
-done
-set -- "${_args[@]+"${_args[@]}"}"
-unset _args _arg
-
-while getopts "a:b:d:t:hr:V" opt; do
+NO_DEFAULT_REPOS=
+while getopts "d:hnr:V" opt; do
 case $opt in
-	a) ARCH="$OPTARG";;
-	b) IMAGES="$OPTARG";;
 	d) DATE="$OPTARG";;
-	r) REPO="-r $OPTARG $REPO";;
-	t) TRIPLET="$OPTARG";;
+	n) NO_DEFAULT_REPOS=yes;;
+	r) REPO="$REPO -r $OPTARG";;
 	V) version; exit 0;;
 	h) usage; exit 0;;
 	*) usage >&2; exit 1;;
@@ -68,23 +50,15 @@ esac
 done
 shift $((OPTIND - 1))
 
-# Architecture-dependent globals (set once, used by include_* functions)
-if [ -n "$MUSL" ]; then
-	ARCH_PATH="x86_64-musl"
-	BROWSER="firefox"
-	PLASMA_BROWSER="firefox"
-	REPO_PKGS="void-repo-nonfree"
-else
-	ARCH_PATH="x86_64"
-	BROWSER="brave-bin"
-	PLASMA_BROWSER="librewolf"
-	REPO_PKGS="void-repo-multilib void-repo-multilib-nonfree void-repo-nonfree"
+if [ -z "$NO_DEFAULT_REPOS" ]; then
+	for r in $DEFAULT_REPOS; do
+		REPO="$REPO -r $r"
+	done
 fi
 
-if [ -n "$NC" ]; then
-	CALAMARES=
-else
-	CALAMARES="calamares grub rsync"
+if [ ! -x mklive.sh ]; then
+	echo mklive.sh not found >&2
+	exit 1
 fi
 
 INCLUDEDIR=$(mktemp -d)
@@ -94,733 +68,104 @@ cleanup() {
 	rm -rf "$INCLUDEDIR"
 }
 
-include_installer() {
-	if [ -x installer.sh ]; then
-		MKLIVE_VERSION="$(PROGNAME='' version)"
-		installer=$(mktemp)
-		sed "s/@@MKLIVE_VERSION@@/${MKLIVE_VERSION}/" installer.sh > "$installer"
-		install -Dm755 "$installer" "$INCLUDEDIR"/usr/bin/d77void-installer
-		rm "$installer"
-	else
-		echo installer.sh not found >&2
-		exit 1
-	fi
-}
+# ── Packages (docs/APPROVAL_GATE.md §2) ────────────────────────────────
+# base-system, syslinux, grub-*-efi and memtest86+ are added by mklive.sh.
 
-setup_pipewire() {
-	PKGS="$PKGS pipewire alsa-pipewire"
-	case "$ARCH" in
-		asahi*)
-			PKGS="$PKGS asahi-audio"
-			SERVICES="$SERVICES speakersafetyd"
-			;;
-	esac
-	mkdir -p "$INCLUDEDIR"/etc/xdg/autostart
-	ln -sf /usr/share/applications/pipewire.desktop "$INCLUDEDIR"/etc/xdg/autostart/
-	if [ "$variant" != cosmic ]; then
-		# cosmic-session already spawns its own wireplumber and pipewire-pulse;
-		# also loading these via pipewire's context.exec duplicates both and
-		# leaves the pulse socket handshake hanging.
-		mkdir -p "$INCLUDEDIR"/etc/pipewire/pipewire.conf.d
-		ln -sf /usr/share/examples/wireplumber/10-wireplumber.conf "$INCLUDEDIR"/etc/pipewire/pipewire.conf.d/
-		ln -sf /usr/share/examples/pipewire/20-pipewire-pulse.conf "$INCLUDEDIR"/etc/pipewire/pipewire.conf.d/
-	fi
-	mkdir -p "$INCLUDEDIR"/etc/alsa/conf.d
-	ln -sf /usr/share/alsa/alsa.conf.d/50-pipewire.conf "$INCLUDEDIR"/etc/alsa/conf.d
-	ln -sf /usr/share/alsa/alsa.conf.d/99-pipewire-default.conf "$INCLUDEDIR"/etc/alsa/conf.d
-}
+PKGS_DISKS="util-linux parted gptfdisk smartmontools nvme-cli hdparm sdparm sg3_utils lsscsi"
+PKGS_RECOVERY="ddrescue testdisk partclone fsarchiver"
+PKGS_FS="e2fsprogs xfsprogs btrfs-progs dosfstools exfatprogs ntfs-3g f2fs-tools mtools"
+PKGS_VOLUMES="cryptsetup lvm2 mdadm"
+PKGS_BOOT="efibootmgr efivar os-prober"
+PKGS_NET="iproute2 iputils dhcpcd wpa_supplicant openssh curl rsync"
+PKGS_NETDIAG="tcpdump nmap traceroute mtr ldns openbsd-netcat socat arp-scan"
+PKGS_FORENSICS="dcfldd libewf sleuthkit foremost"
+PKGS_HW="dmidecode pciutils usbutils hwinfo chntpw f3 lynis acpid"
+PKGS_OPS="tmux vim less man-db lsof strace pv zstd p7zip squashfs-tools dialog chrony xtools-minimal"
 
-include_box() {
-	PKGS="$PKGS cbatticon conky jgmenu jq redshift-gtk volumeicon network-manager-applet"
-	mkdir -p "$INCLUDEDIR"/usr/share/applications
-	cp ./common/jgmenu.desktop "$INCLUDEDIR"/usr/share/applications/
-}
+PKGS_X11="xorg-minimal xorg-input-drivers xorg-video-drivers xinit setxkbmap xauth dejavu-fonts-ttf terminus-font font-misc-misc pwm d77-st dmenu dbus dbus-x11 elogind polkit"
+PKGS_WAYLAND="mesa-dri wasp utumno qsd77 quickshell matugen wmenu alacritty dunst awww"
+PKGS_LOGIN="greetd dwl"
 
-include_greetd() {
-	PKGS="$PKGS dwl greetd quickshell"
-	mkdir -p "$INCLUDEDIR"/etc/greetd/quickshell-d77/greeter
-	cp -r ./common/quickshell-d77/greeter/. "$INCLUDEDIR"/etc/greetd/quickshell-d77/greeter/
-	cp ./common/quickshell-d77/greeter/assets/greet-dwl.sh "$INCLUDEDIR"/etc/greetd/
-	cp ./common/quickshell-d77/greeter/config.toml "$INCLUDEDIR"/etc/greetd/
-	SERVICES="$SERVICES greetd"
-}
+# acpi-gpe-guard is not a package: its service dir is placed by
+# _include_base and linked into runsvdir there, not via -S.
+SERVICES="acpid dbus polkitd greetd dhcpcd chronyd"
 
-include_sddm() {
-	PKGS="$PKGS sddm"
-	mkdir -p "$INCLUDEDIR"/etc/sddm.conf.d
-	mkdir -p "$INCLUDEDIR"/usr/share/sddm/faces
-	mkdir -p "$INCLUDEDIR"/usr/share/sddm/themes
-	cp ./common/sddm.conf "$INCLUDEDIR"/etc/sddm.conf.d/
-	cp ./common/anon.face.icon "$INCLUDEDIR"/usr/share/sddm/faces/
-	cp -r ./common/slice "$INCLUDEDIR"/usr/share/sddm/themes/
-	SERVICES="$SERVICES sddm"
-}
+# ── Include directory (overlay) ────────────────────────────────────────
 
-include_plymouth() {
-	mkdir -p "$INCLUDEDIR"/etc/dracut.conf.d
-	mkdir -p "$INCLUDEDIR"/etc/kernel.d/post-install
-	mkdir -p "$INCLUDEDIR"/etc/plymouth
-	mkdir -p "$INCLUDEDIR"/usr/share/plymouth/themes
-	cp ./common/10-plymouth.conf "$INCLUDEDIR"/etc/dracut.conf.d/
-	cp ./common/99-plymouth-dracut "$INCLUDEDIR"/etc/kernel.d/post-install/
-	cp ./common/plymouthd.conf "$INCLUDEDIR"/etc/plymouth/
-	cp -r ./common/d77 "$INCLUDEDIR"/usr/share/plymouth/themes/
-	cp -r ./common/d77-spinner "$INCLUDEDIR"/usr/share/plymouth/themes/
-}
-
-# System identity for every variant, including base, which skips
-# _include_base. Keep base-files' /usr/lib/os-release intact; /etc takes
-# precedence. base-files owns the /etc/os-release symlink without listing it
-# in conf_files, so a later base-files update would point it back at Void's
-# file; the noextract rule makes xbps skip that path while unpacking.
+# System identity. Keep base-files' /usr/lib/os-release intact; /etc takes
+# precedence. The noextract rule stops a base-files update from pointing the
+# /etc/os-release symlink back at Void's file.
 _include_identity() {
-	install -Dm644 ./common/os-release "$INCLUDEDIR"/usr/lib/d77void-os-release
+	install -Dm644 ./common/os-release "$INCLUDEDIR"/usr/lib/d77orphaned-os-release
 	mkdir -p "$INCLUDEDIR"/etc
-	ln -sfn ../usr/lib/d77void-os-release "$INCLUDEDIR"/etc/os-release
-	install -Dm644 ./common/xbps.d/90-d77void-os-release.conf \
-		"$INCLUDEDIR"/usr/share/xbps.d/90-d77void-os-release.conf
+	ln -sfn ../usr/lib/d77orphaned-os-release "$INCLUDEDIR"/etc/os-release
+	install -Dm644 ./common/xbps.d/90-d77orphaned-os-release.conf \
+		"$INCLUDEDIR"/usr/share/xbps.d/90-d77orphaned-os-release.conf
 	install -Dm644 ./assets/logo.png \
 		"$INCLUDEDIR"/usr/share/icons/hicolor/512x512/apps/d77void.png
 }
 
 _include_base() {
-	mkdir -p "$INCLUDEDIR"/boot/grub/themes
-	mkdir -p "$INCLUDEDIR"/etc
-	mkdir -p "$INCLUDEDIR"/etc/skel/.config
-	mkdir -p "$INCLUDEDIR"/etc/skel/.local/share
-	mkdir -p "$INCLUDEDIR"/etc/default
-	mkdir -p "$INCLUDEDIR"/usr/bin
-	mkdir -p "$INCLUDEDIR"/usr/lib
-	mkdir -p "$INCLUDEDIR"/usr/share/applications
-	mkdir -p "$INCLUDEDIR"/usr/share/pixmaps
-	mkdir -p "$INCLUDEDIR"/usr/share/polkit-1/rules.d
-	mkdir -p "$INCLUDEDIR"/usr/share/void-artwork
-	mkdir -p "$INCLUDEDIR"/etc/udev/rules.d
-	cp -r ./common/d77-grub-theme "$INCLUDEDIR"/boot/grub/themes/
-	if [ -z "$NC" ]; then
-		cp -r ./common/calamares "$INCLUDEDIR"/etc/
-	fi
-	cp -r ./common/.bash_it "$INCLUDEDIR"/etc/skel/
-	cp -r "$variant"/skel "$INCLUDEDIR"/etc/
-	cp ./common/grub "$INCLUDEDIR"/etc/default/
-	mkdir -p "$INCLUDEDIR"/etc/dracut.conf.d
-	cp ./common/90-d77.conf "$INCLUDEDIR"/etc/dracut.conf.d/
-	cp ./common/.auto.sh "$INCLUDEDIR"/etc/skel/
-	cp ./common/.gtkrc-2.0 "$INCLUDEDIR"/etc/skel/
-	cp ./common/.bashrc "$INCLUDEDIR"/etc/skel/
-	cp ./common/.Xresources "$INCLUDEDIR"/etc/skel/
-	cp ./common/"$ARCH_PATH"/d77-welcome "$INCLUDEDIR"/usr/bin/
-	# Key bindings and menus open the browser through d77-browser, which
-	# runs whichever one the image has (Brave, LibreWolf or Firefox).
-	install -m755 ./common/d77-browser "$INCLUDEDIR"/usr/bin/
-	cp ./common/50-udisks.rules "$INCLUDEDIR"/usr/share/polkit-1/rules.d/
-	cp ./common/90-udisks-ignore-loop.rules "$INCLUDEDIR"/etc/udev/rules.d/
-	cp ./common/d77-welcome.desktop "$INCLUDEDIR"/usr/share/applications/
-	cp ./common/d77void.png "$INCLUDEDIR"/usr/share/pixmaps/
-	cp ./common/splash.png "$INCLUDEDIR"/usr/share/void-artwork/
-	cp -r ./common/gtksourceview-4 "$INCLUDEDIR"/etc/skel/.local/share/
-	cp -r ./common/config/* "$INCLUDEDIR"/etc/skel/.config/
-	cp -r ./common/themes "$INCLUDEDIR"/etc/skel/.local/share/
-	cp -r ./common/.icons "$INCLUDEDIR"/etc/skel/
-	cp -r ./common/"$ARCH_PATH"/lib-d77-welcome "$INCLUDEDIR"/usr/lib/
+	mkdir -p "$INCLUDEDIR"/etc/skel
+	cp -r ./common/skel/. "$INCLUDEDIR"/etc/skel/
+	cp -r ./pwm/skel/. "$INCLUDEDIR"/etc/skel/
+	cp -r ./wasp/skel/. "$INCLUDEDIR"/etc/skel/
+	install -Dm755 ./common/d77orphaned/pwm-startup.sh \
+		"$INCLUDEDIR"/etc/d77orphaned/pwm-startup.sh
 
 	# acpi-gpe-guard: guards against a runaway ACPI GPE (firmware
 	# interrupt-storm bug seen on some laptops — masks whichever GPE is
 	# actually storming, no hardcoded machine-specific GPE number, so
-	# it's safe on hardware we don't control). Not an xbps package, so
-	# it can't go through enable_services (that requires the service to
-	# already exist under $ROOTFS/etc/sv, which only packages installed
-	# via install_packages provide) — enabled directly here instead by
-	# placing both the service dir and its runsvdir symlink ourselves.
+	# it's safe on hardware we don't control). Runtime-only: it writes
+	# to sysfs, never to disks.
 	install -Dm755 ./common/acpi-gpe-guard/acpi-gpe-guard.sh \
 		"$INCLUDEDIR"/usr/lib/acpi-gpe-guard/acpi-gpe-guard.sh
 	install -Dm755 ./common/acpi-gpe-guard/run \
 		"$INCLUDEDIR"/etc/sv/acpi-gpe-guard/run
-	# log/run: same vlogger -p daemon pattern every other service here
-	# uses (ollama, NetworkManager, dbus, cupsd, ...), so this logs
-	# wherever the image's syslog setup already routes "daemon" facility
-	# messages, with no service-specific plumbing to add later.
 	install -Dm755 ./common/acpi-gpe-guard/log/run \
 		"$INCLUDEDIR"/etc/sv/acpi-gpe-guard/log/run
 	mkdir -p "$INCLUDEDIR"/etc/runit/runsvdir/default
 	ln -sf /etc/sv/acpi-gpe-guard "$INCLUDEDIR"/etc/runit/runsvdir/default/acpi-gpe-guard
 }
 
-include_common() {
-	_include_base
-	cp -r ./common/Wallpaper "$INCLUDEDIR"/etc/skel/
-	cp -r ./common/Wallpaper "$INCLUDEDIR"/usr/share/
+# Integrity of target disks: nothing on them is assembled, activated or
+# mounted unless the user does it on purpose.
+_include_integrity() {
+	# Mask the udev rules that auto-assemble MD RAID and auto-activate LVM
+	# after boot (rd.md=0/rd.lvm=0 only cover the initramfs).
+	install -Dm644 ./common/udev/64-md-raid-assembly.rules \
+		"$INCLUDEDIR"/etc/udev/rules.d/64-md-raid-assembly.rules
+	install -Dm644 ./common/udev/69-dm-lvm.rules \
+		"$INCLUDEDIR"/etc/udev/rules.d/69-dm-lvm.rules
+	install -Dm644 ./common/mdadm.conf "$INCLUDEDIR"/etc/mdadm.conf
+	# D1: block Utumno's automatic wttr.in request.
+	install -Dm644 ./common/hosts "$INCLUDEDIR"/etc/hosts
 }
 
-include_dmenu() {
-	PKGS="$PKGS dmenu"
-	mkdir -p "$INCLUDEDIR"/usr/bin
-	cp ./common/power_menu "$INCLUDEDIR"/usr/bin/
-}
-
-include_fuzzel() {
-	PKGS="$PKGS fuzzel"
-	mkdir -p "$INCLUDEDIR"/etc/skel/.config
-	mkdir -p "$INCLUDEDIR"/usr/bin
-	cp -r ./common/fuzzel_c/fuzzel "$INCLUDEDIR"/etc/skel/.config
-	cp ./common/fuzzel_c/fuzzel-power-menu "$INCLUDEDIR"/usr/bin/
-}
-
-include_gnome() {
-	_include_base
-	mkdir -p "$INCLUDEDIR"/usr/share/backgrounds
-	cp -r ./common/gnome-shell "$INCLUDEDIR"/etc/skel/.local/share/
-	cp -r ./common/dconf "$INCLUDEDIR"/etc/
-	cp -r ./common/Wallpaper "$INCLUDEDIR"/usr/share/backgrounds/
-}
-
-include_lxqt() {
-	mkdir -p "$INCLUDEDIR"/usr/share/lxqt/wallpapers
-	mkdir -p "$INCLUDEDIR"/usr/share/lxqt/graphics
-	cp ./common/Wallpaper/background3.png "$INCLUDEDIR"/usr/share/lxqt/wallpapers/
-	cp ./common/d77void.png "$INCLUDEDIR"/usr/share/lxqt/graphics/
-}
-
-include_niri() {
-	mkdir -p "$INCLUDEDIR"/usr/bin
-	cp ./common/dconf_niri "$INCLUDEDIR"/usr/bin/
-	cp ./common/sww "$INCLUDEDIR"/usr/bin/
-	cp ./common/niri_1st "$INCLUDEDIR"/usr/bin/
-	cp ./common/screenlock "$INCLUDEDIR"/usr/bin/
-}
-
-include_plasma() {
-	_include_base
-	include_sddm
-	mkdir -p "$INCLUDEDIR"/usr/share/backgrounds
-	cp -r ./common/gnome-shell "$INCLUDEDIR"/etc/skel/.local/share/
-	cp -r ./common/dconf "$INCLUDEDIR"/etc/
-	cp -r ./common/Wallpaper "$INCLUDEDIR"/usr/share/backgrounds/
-	# _include_base copies common/config/mimeapps.list (Mousepad) on top of
-	# the Plasma skel, but Plasma ships Kate and $PLASMA_BROWSER instead.
-	local browser_desktop=librewolf.desktop
-	[ -n "$MUSL" ] && browser_desktop=firefox.desktop
-	# The panel launcher and Kickoff favourites in the skel name librewolf.desktop
-	sed -i "s/applications:librewolf\.desktop/applications:$browser_desktop/" \
-		"$INCLUDEDIR"/etc/skel/.config/kactivitymanagerd-statsrc \
-		"$INCLUDEDIR"/etc/skel/.config/plasma-org.kde.plasma.desktop-appletsrc
-	cat > "$INCLUDEDIR"/etc/skel/.config/mimeapps.list <<- EOF
-		[Added Associations]
-		text/plain=org.kde.kate.desktop;
-
-		[Default Applications]
-		text/plain=org.kde.kate.desktop
-		text/html=$browser_desktop
-		x-scheme-handler/http=$browser_desktop
-		x-scheme-handler/https=$browser_desktop
-		x-scheme-handler/about=$browser_desktop
-		x-scheme-handler/unknown=$browser_desktop
-	EOF
-}
-
-include_poly() {
-	PKGS="$PKGS polybar cbatticon network-manager-applet redshift-gtk volumeicon"
-	mkdir -p "$INCLUDEDIR"/etc/skel/.config
-	mkdir -p "$INCLUDEDIR"/etc/skel/.local/share
-	cp -r ./common/polybar "$INCLUDEDIR"/etc/skel/.config/
-	cp -r ./common/fonts "$INCLUDEDIR"/etc/skel/.local/share/
-}
-
-include_river() {
-	mkdir -p "$INCLUDEDIR"/usr/bin
-	cp ./common/screenlock "$INCLUDEDIR"/usr/bin/
-}
-
-include_rofi() {
-	PKGS="$PKGS oranchelo-icon-theme rofi"
-	mkdir -p "$INCLUDEDIR"/etc/skel/.config
-	mkdir -p "$INCLUDEDIR"/usr/bin
-	cp -r ./common/rofi_c/rofi "$INCLUDEDIR"/etc/skel/.config
-	cp ./common/rofi_c/rofi-power-menu "$INCLUDEDIR"/usr/bin/
-}
-
-include_way() {
-	PKGS="$PKGS cliphist network-manager-applet nwg-look nwg-launchers pavucontrol SwayNotificationCenter Waybar wlsunset xorg-server-xwayland xwayland-satellite"
-	cp ./common/wswap-way "$INCLUDEDIR"/usr/bin/
-	mkdir -p "$INCLUDEDIR"/etc/skel/.config
-	cp -r ./common/waybar "$INCLUDEDIR"/etc/skel/.config/
-}
-
-include_wmd77() {
-	# polybar (include_poly) in place of wmd77's built-in bar
-	mkdir -p "$INCLUDEDIR"/etc/skel/.config/wmd77
-	cp ./common/wmd77/config.toml "$INCLUDEDIR"/etc/skel/.config/wmd77/
-	cp -p ./common/wmd77/startup.sh "$INCLUDEDIR"/etc/skel/.config/wmd77/
-}
-
-include_x11() {
-	PKGS="$PKGS dunst redshift scrot d77-slock d77-st transset xautolock xcompmgr xterm"
-	cp ./common/wswap-X "$INCLUDEDIR"/usr/bin/
-}
-
-include_xfce() {
-	_include_base
-	mkdir -p "$INCLUDEDIR"/etc/sddm.conf.d
-	mkdir -p "$INCLUDEDIR"/usr/share/backgrounds/xfce
-	mkdir -p "$INCLUDEDIR"/usr/share/sddm/faces
-	mkdir -p "$INCLUDEDIR"/usr/share/sddm/themes
-	mkdir -p "$INCLUDEDIR"/var/lib/sddm
-	cp ./common/sddm_xfce.conf "$INCLUDEDIR"/etc/sddm.conf.d/
-	cp ./common/anon.face.icon "$INCLUDEDIR"/usr/share/sddm/faces/
-	cp ./common/state.conf "$INCLUDEDIR"/var/lib/sddm/
-	cp ./common/Wallpaper/background3.png "$INCLUDEDIR"/usr/share/backgrounds/xfce/
-	cp -r ./common/Wallpaper "$INCLUDEDIR"/etc/skel/
-	cp -r ./common/slice "$INCLUDEDIR"/usr/share/sddm/themes/
+# greetd + the quickshell-d77 greeter under a disposable dwl (as in d77void's
+# include_greetd), with an autologin [initial_session] into pwm.
+include_greetd() {
+	mkdir -p "$INCLUDEDIR"/etc/greetd/quickshell-d77/greeter
+	cp -r ./common/quickshell-d77/greeter/. "$INCLUDEDIR"/etc/greetd/quickshell-d77/greeter/
+	install -m755 ./common/quickshell-d77/greeter/assets/greet-dwl.sh "$INCLUDEDIR"/etc/greetd/
+	install -m644 ./common/greetd/config.toml "$INCLUDEDIR"/etc/greetd/config.toml
 }
 
 build_variant() {
-	variant="$1"
-	shift
-	IMG=d77void-live-${ARCH}-${DATE}-${variant}.iso
+	IMG=d77orphaned-live-${ARCH}-${DATE}.iso
 
-	# el-cheapo installer is unsupported on arm because arm doesn't install a kernel by default
-	# and to work around that would add too much complexity to it
-	# thus everyone should just do a chroot install anyways
-	WANT_INSTALLER=no
-	case "$ARCH" in
-		x86_64*|i686*)
-			GRUB_PKGS="grub-i386-efi grub-x86_64-efi"
-			GFX_PKGS="xorg-video-drivers"
-			GFX_WL_PKGS="mesa-dri"
-			[ -n "$NC" ] && WANT_INSTALLER=yes
-			TARGET_ARCH="$ARCH"
-			if [ -n "$MUSL" ]; then
-				D77_CORE="acpi alsa-pipewire alsa-tools alsa-utils arc-theme bash-completion bc firefox brightnessctl ca-certificates cmus cups cups-browsed curl elogind ethtool fastfetch feh font-awesome font-awesome5 font-awesome6 font-hack-ttf font-JetBrainsMono geary gettext git d77run htop inxi kvantum mousepad mpv musl-locales nano NetworkManager nerd-fonts-symbols-ttf nwg-look octoxbps papirus-icon-theme pcmanfm pipewire plymouth polkit power-profiles-daemon pulseaudio-utils qt5ct qt6ct ranger smartmontools system-config-printer transmission-qt udiskie ufw uget unzip usbutils util-linux vim wget wireplumber xdg-user-dirs xdg-user-dirs-gtk xdg-utils xf86-input-synaptics xarchiver xcalc xinit xorg xorg-server xpdf yt-dlp zathura zathura-pdf-poppler"
-				D77_COSMIC="acpi alsa-pipewire alsa-tools alsa-utils arc-theme bash-completion bc brightnessctl ca-certificates cmus cups cups-browsed curl elogind ethtool feh ffmpeg font-hack-ttf font-JetBrainsMono geary gettext git htop inxi kvantum musl-locales nano NetworkManager neofetch nerd-fonts-symbols-ttf octoxbps papirus-icon-theme pipewire plymouth polkit power-profiles-daemon pulseaudio-utils qt5ct qt6ct ranger smartmontools transmission-qt udiskie ufw uget unzip usbutils util-linux vim $REPO_PKGS wget wireplumber xdg-user-dirs xdg-user-dirs-gtk xdg-utils xf86-input-synaptics xinit xorg xorg-server xpdf yt-dlp zathura zathura-pdf-poppler"
-				D77_GNOME="acpi alsa-pipewire alsa-tools alsa-utils arc-theme bash-completion bc brightnessctl ca-certificates cmus cups cups-browsed curl elogind ethtool feh ffmpeg font-hack-ttf font-JetBrainsMono geary gettext git htop inxi kvantum musl-locales nano NetworkManager neofetch nerd-fonts-symbols-ttf octoxbps papirus-icon-theme pipewire plymouth polkit power-profiles-daemon pulseaudio-utils qt5ct qt6ct ranger smartmontools transmission-qt udiskie ufw uget unzip usbutils util-linux vim $REPO_PKGS wget wireplumber xdg-user-dirs xdg-user-dirs-gtk xdg-utils xf86-input-synaptics xinit xorg xorg-server xpdf yt-dlp zathura zathura-pdf-poppler"
-				D77_WAYFIRE="acpi alsa-pipewire alsa-tools alsa-utils arc-theme bash-completion bc firefox brightnessctl ca-certificates cmus cups cups-browsed curl dunst elogind ethtool fastfetch feh font-awesome font-awesome5 font-awesome6 font-awesome7 font-hack-ttf font-JetBrainsMono geary gettext git d77run htop inxi kitty kvantum mousepad mpv musl-locales nano NetworkManager nerd-fonts-symbols-ttf nwg-look octoxbps papirus-icon-theme pcmanfm pipewire plymouth polkit power-profiles-daemon pulseaudio-utils qt5ct qt6ct ranger smartmontools system-config-printer transmission-gtk udiskie ufw uget unzip usbutils util-linux vim $REPO_PKGS wget wireplumber xdg-desktop-portal xdg-user-dirs xdg-user-dirs-gtk xdg-utils xf86-input-synaptics xarchiver xcalc xinit xorg xorg-server xpdf xterm yt-dlp zathura zathura-pdf-poppler"
-			else
-				D77_CORE="acpi alsa-pipewire alsa-tools alsa-utils arc-theme bash-completion bc brave-bin brightnessctl ca-certificates cmus cups cups-browsed curl elogind ethtool fastfetch feh font-awesome font-awesome5 font-awesome6 font-awesome7 font-hack-ttf font-JetBrainsMono geary gettext git d77run htop inxi kvantum mousepad mpv nano NetworkManager nerd-fonts-symbols-ttf nwg-look octoxbps papirus-icon-theme pcmanfm pipewire plymouth polkit power-profiles-daemon pulseaudio-utils qt5ct qt6ct ranger smartmontools system-config-printer transmission-qt udiskie ufw uget unzip usbutils util-linux vim $REPO_PKGS wget wireplumber xdg-user-dirs xdg-user-dirs-gtk xdg-utils xf86-input-synaptics xarchiver xcalc xinit xorg xorg-server xpdf yt-dlp zathura zathura-pdf-poppler"
-				D77_COSMIC="acpi alsa-pipewire alsa-tools alsa-utils arc-theme bash-completion bc brightnessctl ca-certificates cmus cups cups-browsed curl elogind ethtool feh ffmpeg font-hack-ttf font-JetBrainsMono geary gettext git htop inxi kvantum nano NetworkManager neofetch nerd-fonts-symbols-ttf octoxbps papirus-icon-theme pipewire plymouth polkit power-profiles-daemon pulseaudio-utils qt5ct qt6ct ranger smartmontools transmission-qt udiskie ufw uget unzip usbutils util-linux vim $REPO_PKGS wget wireplumber xdg-user-dirs xdg-user-dirs-gtk xdg-utils xf86-input-synaptics xinit xorg xorg-server xpdf yt-dlp zathura zathura-pdf-poppler"
-				D77_GNOME="acpi alsa-pipewire alsa-tools alsa-utils arc-theme bash-completion bc brightnessctl ca-certificates cmus cups cups-browsed curl elogind ethtool feh ffmpeg font-hack-ttf font-JetBrainsMono geary gettext git htop inxi kvantum nano NetworkManager neofetch nerd-fonts-symbols-ttf octoxbps papirus-icon-theme pipewire plymouth polkit power-profiles-daemon pulseaudio-utils qt5ct qt6ct ranger smartmontools transmission-qt udiskie ufw uget unzip usbutils util-linux vim $REPO_PKGS wget wireplumber xdg-user-dirs xdg-user-dirs-gtk xdg-utils xf86-input-synaptics xinit xorg xorg-server xpdf yt-dlp zathura zathura-pdf-poppler"
-				D77_WAYFIRE="acpi alsa-pipewire alsa-tools alsa-utils arc-theme bash-completion bc brave-bin brightnessctl ca-certificates cmus cups cups-browsed curl dunst elogind ethtool fastfetch feh font-awesome font-awesome5 font-awesome6 font-awesome7 font-hack-ttf font-JetBrainsMono geary gettext git d77run htop inxi kitty kvantum mousepad mpv nano NetworkManager nerd-fonts-symbols-ttf nwg-look octoxbps papirus-icon-theme pcmanfm pipewire plymouth polkit power-profiles-daemon pulseaudio-utils qt5ct qt6ct ranger smartmontools system-config-printer transmission-gtk udiskie ufw uget unzip usbutils util-linux vim $REPO_PKGS wget wireplumber xdg-desktop-portal xdg-user-dirs xdg-user-dirs-gtk xdg-utils xf86-input-synaptics xarchiver xcalc xinit xorg xorg-server xpdf xterm yt-dlp zathura zathura-pdf-poppler"
-			fi
-			COMMON=
-			GREETD=
-			SDDM=
-			GNOME=
-			PLASMA=
-			X11=
-			WAY=
-			NIRI=
-			LXQT=
-			BOX=
-			PLYMOUTH=yes
-			POLY=
-			XFCE=
-			DMENU=
-			FUZZEL=
-			RIVER=
-			ROFI=
-			WMD77=
-			;;
-		aarch64*)
-			GRUB_PKGS="grub-arm64-efi"
-			GFX_PKGS="xorg-video-drivers"
-			GFX_WL_PKGS="mesa-dri"
-			TARGET_ARCH="$ARCH"
-			;;
-		asahi*)
-			GRUB_PKGS="asahi-base asahi-scripts grub-arm64-efi"
-			GFX_PKGS="mesa-asahi-dri"
-			GFX_WL_PKGS="mesa-asahi-dri"
-			KERNEL_PKG="linux-asahi"
-			TARGET_ARCH="aarch64${ARCH#asahi}"
-			if [ "$variant" = xfce ]; then
-				info_msg "xfce is not supported on asahi, switching to xfce-wayland"
-				variant="xfce-wayland"
-			fi
-			;;
-	esac
-
-	A11Y_PKGS="espeakup void-live-audio brltty"
-	PKGS="dialog cryptsetup lvm2 mdadm void-docs-browse xtools-minimal xmirror chrony tmux gvfs $A11Y_PKGS $GRUB_PKGS"
-	FONTS="font-misc-misc terminus-font dejavu-fonts-ttf"
-	WAYLAND_PKGS="$GFX_WL_PKGS $FONTS orca"
-	XORG_PKGS="$GFX_PKGS $FONTS xorg-minimal xorg-input-drivers setxkbmap xauth orca"
-	SERVICES="sshd chronyd"
-
-	LIGHTDM_SESSION=''
-	# Desktop file for text/plain when the variant doesn't ship Mousepad
-	# (common/config/mimeapps.list); "none" when it has no GUI editor.
-	TEXT_EDITOR=''
-
-	case $variant in
-		base)
-			SERVICES="$SERVICES dhcpcd wpa_supplicant acpid"
-		;;
-		awesome)
-			COMMON=yes
-			X11=yes
-			SDDM=yes
-			ROFI=yes
-			PKGS="$PKGS $XORG_PKGS $D77_CORE $CALAMARES awesome d77-awesome-appmenu mate-polkit qt5-graphicaleffects wireless_tools xdg-desktop-portal-gtk"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		bspwm)
-			COMMON=yes
-			X11=yes
-			SDDM=yes
-			DMENU=yes
-			ROFI=yes
-			PKGS="$PKGS $XORG_PKGS $D77_CORE $CALAMARES bspwm bspwmbar cbatticon mate-polkit network-manager-applet qt5-graphicaleffects redshift-gtk sxhkd volumeicon xdg-desktop-portal-gtk"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		cosmic)
-			TEXT_EDITOR=com.system76.CosmicEdit.desktop
-			COMMON=yes
-			GREETD=yes
-			PKGS="$PKGS $XORG_PKGS $WAYLAND_PKGS $D77_COSMIC $CALAMARES $BROWSER cliphist cosmic-desktop-full cosmic-greeter cosmic-tweaks gnome-keyring qt5-wayland qt6-wayland xarchiver"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		dwm)
-			COMMON=yes
-			X11=yes
-			SDDM=yes
-			DMENU=yes
-			ROFI=yes
-			PKGS="$PKGS $XORG_PKGS $D77_CORE $CALAMARES d77-dwm mate-polkit qt5-graphicaleffects d77-slstatus sxhkd xdg-desktop-portal-gtk"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		fabric)
-			COMMON=yes
-			GREETD=yes
-			PKGS="$PKGS $XORG_PKGS $WAYLAND_PKGS $D77_CORE $CALAMARES alacritty awww cinnamon-desktop cliphist cmake fabric fabric-d77 gcc gobject-introspection grim gtk-layer-shell gtk-session-lock libdbusmenu-gtk3 mate-polkit nwg-look ollama pkg-config python3-cairo-devel python3-pam python3-psutil qt5-wayland qt6-wayland swayfx swaybg swayidle swayimg wlsunset wmenu xdg-desktop-portal-gtk xdg-desktop-portal-wlr xorg-server-xwayland xwayland-satellite"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager ollama polkitd power-profiles-daemon"
-		;;
-		fluxbox)
-			COMMON=yes
-			BOX=yes
-			X11=yes
-			SDDM=yes
-			ROFI=yes
-			PKGS="$PKGS $XORG_PKGS $D77_CORE $CALAMARES fluxbox mate-polkit menumaker qt5-graphicaleffects xdg-desktop-portal-gtk"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		gnome)
-			TEXT_EDITOR=org.gnome.TextEditor.desktop
-			GNOME=yes
-			PKGS="$PKGS $XORG_PKGS $WAYLAND_PKGS $D77_GNOME $CALAMARES $BROWSER extension-manager gdm gnome gnome-keyring gnome-shell-extensions qt5-wayland qt6-wayland xarchiver xdg-desktop-portal-gnome"
-			SERVICES="$SERVICES cupsd cups-browsed dbus gdm NetworkManager polkitd power-profiles-daemon"
-		;;
-		helium)
-			COMMON=yes
-			GREETD=yes
-			PKGS="$PKGS $XORG_PKGS $WAYLAND_PKGS $D77_CORE $CALAMARES alacritty amorphis awww grim helium-d77 hypridle hyprlock hyprsunset mate-polkit niri-d77 niri-settings ollama qt5-wayland qt6-wayland xdg-desktop-portal-gnome xdg-desktop-portal-gtk"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager ollama polkitd power-profiles-daemon"
-		;;
-		herbstluftwm)
-			COMMON=yes
-			POLY=yes
-			X11=yes
-			SDDM=yes
-			ROFI=yes
-			PKGS="$PKGS $XORG_PKGS $D77_CORE $CALAMARES herbstluftwm jgmenu mate-polkit qt5-graphicaleffects xdg-desktop-portal-gtk"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		hyprland)
-			COMMON=yes
-			GREETD=yes
-			WAY=yes
-			FUZZEL=yes
-			PKGS="$PKGS $XORG_PKGS $WAYLAND_PKGS $D77_CORE $CALAMARES azote cliphist hyprland hyprland-guiutils hypridle hyprlock hyprpaper hyprsunset hyprutils kitty libinput-hypr hyprpolkitagent qt5-wayland qt6-wayland swaybg wayland-devel wayland-protocols xdg-desktop-portal-hyprland"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		hypr-dms)
-			COMMON=yes
-			GREETD=yes
-			PKGS="$PKGS $XORG_PKGS $WAYLAND_PKGS ${D77_CORE/ pcmanfm / } $CALAMARES cliphist dankcalendar danksearch dms dux-files hyprland hyprland-guiutils hyprpaper kitty libinput-hypr matugen pavucontrol qt5-wayland qt6-multimedia qt6-wayland upower xwayland-satellite wayland-devel wayland-protocols wlsunset xdg-desktop-portal-hyprland xorg-server-xwayland"
-			SERVICES="$SERVICES cupsd cups-browsed dbus dsearch NetworkManager polkitd power-profiles-daemon"
-		;;
-		hypr-noctalia)
-			COMMON=yes
-			GREETD=yes
-			PKGS="$PKGS $XORG_PKGS $WAYLAND_PKGS $D77_CORE $CALAMARES gpu-screen-recorder hyprland hyprland-guiutils hyprpaper intel-media-driver kitty libinput-hypr libva-intel-driver hyprpolkitagent matugen noctalia-shell pavucontrol qt5-wayland qt6-wayland xwayland-satellite wayland-devel wayland-protocols wlsunset xdg-desktop-portal-hyprland xorg-server-xwayland"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		i3wm)
-			COMMON=yes
-			X11=yes
-			SDDM=yes
-			ROFI=yes
-			DMENU=yes
-			PKGS="$PKGS $XORG_PKGS $D77_CORE $CALAMARES dex i3-gaps i3lock i3status mate-polkit qt5-graphicaleffects xdg-desktop-portal-gtk"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		jwm)
-			COMMON=yes
-			X11=yes
-			SDDM=yes
-			PKGS="$PKGS $XORG_PKGS $D77_CORE $CALAMARES cbatticon conky jq jwm mate-polkit network-manager-applet qt5-graphicaleffects redshift-gtk volumeicon xdg-desktop-portal-gtk xdgmenumaker"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		labwc)
-			COMMON=yes
-			GREETD=yes
-			WAY=yes
-			FUZZEL=yes
-			PKGS="$PKGS $XORG_PKGS $WAYLAND_PKGS $D77_CORE $CALAMARES grim ImageMagick kitty labwc labwc-menu-generator labwc-tweaks-qt mate-polkit qt5-wayland qt6-wayland swaybg swayidle swayimg swaylock wlopm xdg-desktop-portal-gtk xdg-desktop-portal-wlr"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		leftwm)
-			COMMON=yes
-			X11=yes
-			SDDM=yes
-			DMENU=yes
-			ROFI=yes
-			PKGS="$PKGS $XORG_PKGS $D77_CORE $CALAMARES eww kitty leftwm leftwm-theme mate-polkit polybar qt5-graphicaleffects wmctrl xdg-desktop-portal-gtk"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		lxqt)
-			TEXT_EDITOR=none
-			COMMON=yes
-			SDDM=yes
-			LXQT=yes
-			PKGS="$PKGS $XORG_PKGS $CALAMARES acpi alsa-pipewire alsa-tools alsa-utils arc-theme bash-completion bc $BROWSER brightnessctl ca-certificates cmus cups cups-browsed curl dunst elogind epson-inkjet-printer-escpr ethtool fastfetch feh font-awesome font-awesome5 font-awesome6 font-hack-ttf geary gettext git github-cli gvfs-afc gvfs-mtp gvfs-smb htop inxi kvantum lxqt mpv nano NetworkManager network-manager-applet nerd-fonts-symbols-ttf octoxbps papirus-icon-theme pipewire plymouth polkit power-profiles-daemon pulseaudio-utils qt5-graphicaleffects qt5ct qt6ct ranger redshift redshift-gtk scrot d77-slock smartmontools system-config-printer transmission-gtk udisks2 ueberzug ufw uget unzip usbutils util-linux vim $REPO_PKGS wireplumber xautolock xcompmgr wget xdg-desktop-portal xdg-user-dirs xdg-user-dirs-gtk xdg-utils xf86-input-synaptics xarchiver xcalc xinit xorg xorg-server xpdf yt-dlp zathura zathura-pdf-poppler"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		mango)
-			COMMON=yes
-			GREETD=yes
-			WAY=yes
-			FUZZEL=yes
-			PKGS="$PKGS $XORG_PKGS $WAYLAND_PKGS $D77_CORE $CALAMARES cliphist ImageMagick kitty mango mate-polkit qt5-wayland qt6-wayland swaybg wayland-devel wayland-protocols xdg-desktop-portal-wlr swayidle swaylock wlopm"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		mango-dms)
-			COMMON=yes
-			GREETD=yes
-			PKGS="$PKGS $XORG_PKGS $WAYLAND_PKGS ${D77_CORE/ pcmanfm / } $CALAMARES cliphist dankcalendar danksearch dms dux-files ImageMagick kitty mango matugen qt5-wayland qt6-wayland wayland-devel wayland-protocols xdg-desktop-portal-wlr"
-			SERVICES="$SERVICES cupsd cups-browsed dbus dsearch NetworkManager polkitd power-profiles-daemon"
-		;;
-		mango-noctalia)
-			COMMON=yes
-			GREETD=yes
-			PKGS="$PKGS $XORG_PKGS $WAYLAND_PKGS $D77_CORE $CALAMARES ImageMagick kitty mango mate-polkit matugen noctalia-shell qt5-wayland qt6-wayland wayland-devel wayland-protocols xdg-desktop-portal-wlr"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		niri)
-			COMMON=yes
-			GREETD=yes
-			WAY=yes
-			NIRI=yes
-			FUZZEL=yes
-			PKGS="$PKGS $XORG_PKGS $WAYLAND_PKGS $D77_CORE $CALAMARES gnome-keyring grim ImageMagick kitty mate-polkit niri-d77 niri-settings qt5-wayland qt6-wayland swaybg swayidle swayimg swaylock swww xdg-desktop-portal-gnome xdg-desktop-portal-gtk wlopm"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		niri-dms)
-			COMMON=yes
-			GREETD=yes
-			PKGS="$PKGS $XORG_PKGS $WAYLAND_PKGS ${D77_CORE/ pcmanfm / } $CALAMARES cliphist dankcalendar danksearch dms dux-files gnome-keyring grim ImageMagick kitty matugen niri-d77 niri-settings pavucontrol qt5-wayland qt6-multimedia qt6-wayland swaybg swayidle swayimg upower wayland-devel wayland-protocols wlsunset xdg-desktop-portal-gnome xdg-desktop-portal-gtk xorg-server-xwayland xwayland-satellite"
-			SERVICES="$SERVICES cupsd cups-browsed dbus dsearch NetworkManager polkitd power-profiles-daemon"
-		;;
-		niri-noctalia)
-			COMMON=yes
-			GREETD=yes
-			PKGS="$PKGS $XORG_PKGS $WAYLAND_PKGS $D77_CORE $CALAMARES gnome-keyring grim ImageMagick kitty mate-polkit matugen niri-d77 niri-settings noctalia-shell pavucontrol qt5-wayland qt6-multimedia qt6-wayland swaybg swayidle swayimg upower wayland-devel wayland-protocols wlsunset xdg-desktop-portal-gnome xdg-desktop-portal-gtk xorg-server-xwayland xwayland-satellite"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		openbox)
-			COMMON=yes
-			BOX=yes
-			X11=yes
-			SDDM=yes
-			ROFI=yes
-			PKGS="$PKGS $XORG_PKGS $D77_CORE $CALAMARES lxappearance-obconf mate-polkit obconf obmenu-generator openbox perl-File-DesktopEntry qt5-graphicaleffects sxhkd tint2 tint2conf xdg-desktop-portal-gtk"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		plasma)
-			PLASMA=yes
-			PKGS="$PKGS $XORG_PKGS $WAYLAND_PKGS $D77_GNOME $CALAMARES ark kde5 kde5-baseapps kmail $PLASMA_BROWSER qt5-graphicaleffects yakuake"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		pwm)
-			TEXT_EDITOR=fresh.desktop
-			COMMON=yes
-			X11=yes
-			SDDM=yes
-			PKGS="$PKGS $XORG_PKGS $CALAMARES acpi alsa-pipewire alsa-tools alsa-utils arc-theme bash-completion bc brightnessctl ca-certificates cmus conky cups cups-browsed curl dmenu elogind ethtool feh font-hack-ttf fresh-editor gettext git d77run htop inxi joshuto kantele kvantum mate-polkit mpv neofetch nerd-fonts-symbols-ttf NetworkManager nwg-look octoxbps papirus-icon-theme pcmanfm pipewire plymouth polkit power-profiles-daemon pulseaudio-utils pwm qt5ct qt6ct qt5-graphicaleffects qutebrowser rofi smartmontools sxhkd system-config-printer transmission-qt udiskie ufw uget unzip usbutils util-linux vim $REPO_PKGS wget wireplumber xdg-desktop-portal-gtk xdg-user-dirs xdg-user-dirs-gtk xdg-utils xf86-input-synaptics xarchiver xcalc xinit xorg xorg-server xpdf yt-dlp zathura zathura-pdf-poppler"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		qsd77)
-			COMMON=yes
-			GREETD=yes
-			PKGS="$PKGS $XORG_PKGS $WAYLAND_PKGS $D77_CORE $CALAMARES alacritty cliphist hyprland hyprland-guiutils hypridle hyprpaper hyprpolkitagent hyprsunset hyprutils libinput-hypr network-manager-applet nwg-look nwg-launchers ollama pavucontrol qsd77 qt5-wayland qt6-wayland quickshell-d77 wayland-devel wayland-protocols wireless_tools xdg-desktop-portal xdg-desktop-portal-gtk xdg-desktop-portal-hyprland xorg-server-xwayland xwayland-satellite"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager ollama polkitd power-profiles-daemon"
-		;;
-		qtile)
-			COMMON=yes
-			X11=yes
-			SDDM=yes
-			FUZZEL=yes
-			ROFI=yes
-			PKGS="$PKGS $XORG_PKGS $WAYLAND_PKGS $D77_CORE $CALAMARES cliphist grim ImageMagick jgmenu kitty mate-polkit nwg-launchers python3-aiohttp python3-psutil python3-qtile-extras qt5-graphicaleffects qt5-wayland qt6-wayland qtile qtile-wayland swayidle swaylock xdg-desktop-portal-gtk xdg-desktop-portal-wlr xorg-server-xwayland xterm wlroots wlsunset xwayland-satellite"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		river)
-			COMMON=yes
-			GREETD=yes
-			RIVER=yes
-			WAY=yes
-			FUZZEL=yes
-			PKGS="$PKGS $XORG_PKGS $WAYLAND_PKGS $D77_CORE $CALAMARES grim ImageMagick kitty mate-polkit qt5-wayland qt6-wayland river river-bedload river-shifttags swaybg swayidle swayimg swaylock xdg-desktop-portal-gtk xdg-desktop-portal-wlr wlopm"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		scroll)
-			COMMON=yes
-			GREETD=yes
-			FUZZEL=yes
-			PKGS="$PKGS $XORG_PKGS $WAYLAND_PKGS $D77_CORE $CALAMARES cliphist gnome-keyring grim ImageMagick kitty nwg-look nwg-launchers pavucontrol polkit-gnome qt5-wayland qt6-wayland scroll swaybg swayidle swayimg swaylock SwayNotificationCenter wayle wlsunset wmenu xdg-desktop-portal xdg-desktop-portal-gtk xdg-desktop-portal-wlr xorg-server-xwayland xwayland-satellite"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		somewm)
-			COMMON=yes
-			GREETD=yes
-			NIRI=yes
-			PKGS="$PKGS $XORG_PKGS $WAYLAND_PKGS $D77_CORE $CALAMARES alacritty d77-awesome-appmenu dunst fuzzel mate-polkit nwg-look somewm swayidle swaylock xdg-desktop-portal-gtk xdg-desktop-portal-wlr xorg-server-xwayland xterm xwayland-satellite wireless_tools wlsunset wlopm"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		spitfire)
-			COMMON=yes
-			GREETD=yes
-			# spitfire itself (Cargo feature "xwayland") owns XWayland, no
-			# xwayland-satellite needed; utumno is pure Qt6/QML, and its
-			# Network.qml talks to NetworkManager directly (no applet) and
-			# shells out to nmtui for management, so no
-			# network-manager-applet either. spitfire-portals.conf (shipped
-			# by the spitfire package) routes the Secret portal to
-			# gnome-keyring explicitly, so that's a hard requirement, not
-			# just a nice-to-have.
-			PKGS="$PKGS $XORG_PKGS $WAYLAND_PKGS $D77_CORE $CALAMARES alacritty awww dunst gnome-keyring kantele mate-polkit noto-fonts-emoji nwg-look ollama pavucontrol qsd77 qt5-wayland qt6-shadertools qt6-wayland spitfire swayidle upower utumno wayland-devel wayland-protocols wireless_tools xdg-desktop-portal xdg-desktop-portal-gtk xorg-server-xwayland"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager ollama polkitd power-profiles-daemon"
-		;;
-		sway)
-			COMMON=yes
-			GREETD=yes
-			FUZZEL=yes
-			PKGS="$PKGS $XORG_PKGS $WAYLAND_PKGS $D77_CORE $CALAMARES cliphist grim ImageMagick kitty mate-polkit nwg-look nwg-launchers pavucontrol qt5-wayland qt6-wayland swayfx swaybg swayidle swayimg swaylock SwayNotificationCenter wlsunset wmenu xdg-desktop-portal-gtk xdg-desktop-portal-wlr xorg-server-xwayland xwayland-satellite"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		wasp)
-			COMMON=yes
-			GREETD=yes
-			# wasp (like spitfire) creates XWayland itself via wlroots --
-			# xorg-server-xwayland is a hard package dependency of wasp
-			# itself, listed here too just for readability alongside the
-			# rest of this line; no xwayland-satellite needed. utumno is
-			# pure Qt6/QML and talks to NetworkManager directly (no
-			# applet needed), same as spitfire. wasp-portals.conf (shipped
-			# by the wasp package) routes Secret to gnome-keyring and
-			# ScreenCast/Screenshot to wlr explicitly, hence
-			# xdg-desktop-portal-wlr below. wmenu provides wmenu-run,
-			# wasp.menu's default in config.lua.
-			PKGS="$PKGS $XORG_PKGS $WAYLAND_PKGS $D77_CORE $CALAMARES alacritty awww dunst gnome-keyring kantele mate-polkit noto-fonts-emoji nwg-look ollama pavucontrol qsd77 qt5-wayland qt6-shadertools qt6-wayland swayidle upower utumno wasp wayland-devel wayland-protocols wireless_tools wlopm wmenu xdg-desktop-portal xdg-desktop-portal-gtk xdg-desktop-portal-wlr xorg-server-xwayland"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager ollama polkitd power-profiles-daemon"
-		;;
-		wayfire)
-			COMMON=yes
-			GREETD=yes
-			PKGS="$PKGS $XORG_PKGS $WAYLAND_PKGS $D77_WAYFIRE $CALAMARES cliphist grim ImageMagick mate-polkit pavucontrol qt5-wayland qt6-wayland swaybg swayidle swayimg swaylock wayfire wayfire-plugins-extra wcm wf-shell wlr-randr wlogout xdg-desktop-portal-wlr"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		wmd77)
-			TEXT_EDITOR=fresh.desktop
-			COMMON=yes
-			POLY=yes
-			WMD77=yes
-			X11=yes
-			SDDM=yes
-			PKGS="$PKGS $XORG_PKGS $CALAMARES acpi alsa-pipewire alsa-tools alsa-utils arc-theme bash-completion bc brightnessctl ca-certificates cmus conky cups cups-browsed curl dmenu elogind ethtool feh font-hack-ttf fresh-editor gettext git d77run htop inxi joshuto kantele kvantum mate-polkit mpv neofetch nerd-fonts-symbols-ttf NetworkManager nwg-look octoxbps papirus-icon-theme pcmanfm pipewire plymouth polkit power-profiles-daemon pulseaudio-utils qt5ct qt6ct qt5-graphicaleffects qutebrowser rofi smartmontools sxhkd system-config-printer transmission-qt udiskie ufw uget unzip usbutils util-linux vim $REPO_PKGS wget wireplumber wmd77 xdg-desktop-portal-gtk xdg-user-dirs xdg-user-dirs-gtk xdg-utils xf86-input-synaptics xarchiver xcalc xinit xorg xorg-server xpdf yt-dlp zathura zathura-pdf-poppler"
-			SERVICES="$SERVICES cupsd cups-browsed dbus NetworkManager polkitd power-profiles-daemon"
-		;;
-		xfce)
-			XFCE=yes
-			PKGS="$PKGS $XORG_PKGS $CALAMARES acpi alsa-pipewire alsa-tools alsa-utils arc-theme bash-completion bc $BROWSER brightnessctl ca-certificates cmus cups cups-browsed curl dunst elogind epson-inkjet-printer-escpr ethtool fastfetch feh font-awesome font-awesome5 font-awesome6 font-hack-ttf geary gettext git github-cli gvfs-afc gvfs-mtp gvfs-smb htop inxi kvantum mpv mugshot nano NetworkManager network-manager-applet nerd-fonts-symbols-ttf octoxbps papirus-icon-theme pipewire plymouth polkit power-profiles-daemon pulseaudio-utils qt5-graphicaleffects qt5ct qt6ct ranger redshift redshift-gtk sddm scrot d77-slock smartmontools system-config-printer transmission-gtk udisks2 ueberzug ufw uget unzip usbutils util-linux vim $REPO_PKGS wget wireplumber xautolock xcompmgr xdg-desktop-portal-gtk xdg-user-dirs xdg-user-dirs-gtk xdg-utils xf86-input-synaptics xarchiver xcalc xfce4 xfce4-pulseaudio-plugin xfce4-weather-plugin xfce4-whiskermenu-plugin xinit xorg xorg-server xpdf yt-dlp zathura zathura-pdf-poppler"
-			SERVICES="$SERVICES cupsd cups-browsed dbus sddm NetworkManager polkitd power-profiles-daemon"
-		;;
-		*)
-			>&2 echo "Unknown variant $variant"
-			exit 1
-		;;
-	esac
-
-	if [ -n "$LIGHTDM_SESSION" ]; then
-		mkdir -p "$INCLUDEDIR"/etc/lightdm
-		echo "$LIGHTDM_SESSION" > "$INCLUDEDIR"/etc/lightdm/.session
-		cat <<- EOF > "$INCLUDEDIR"/etc/lightdm/lightdm-gtk-greeter.conf
-[greeter]
-indicators = ~host;~spacer;~clock;~spacer;~layout;~session;~a11y;~power
-EOF
-	fi
+	PKGS="$PKGS_DISKS $PKGS_RECOVERY $PKGS_FS $PKGS_VOLUMES $PKGS_BOOT $PKGS_NET $PKGS_NETDIAG $PKGS_FORENSICS $PKGS_HW $PKGS_OPS $PKGS_X11 $PKGS_WAYLAND $PKGS_LOGIN"
 
 	_include_identity
-	[ "$BOX" = yes ]     && include_box
-	[ "$COMMON" = yes ]  && include_common
-	[ "$GREETD" = yes ]  && include_greetd
-	[ "$SDDM" = yes ]    && include_sddm
-	[ "$DMENU" = yes ]   && include_dmenu
-	[ "$FUZZEL" = yes ]  && include_fuzzel
-	[ "$GNOME" = yes ]   && include_gnome
-	[ "$LXQT" = yes ]    && include_lxqt
-	[ "$NIRI" = yes ]    && include_niri
-	[ "$PLASMA" = yes ]  && include_plasma
-	[ "$PLYMOUTH" = yes ] && include_plymouth
-	[ "$POLY" = yes ]    && include_poly
-	[ "$RIVER" = yes ]   && include_river
-	[ "$ROFI" = yes ]    && include_rofi
-	[ "$WAY" = yes ]     && include_way
-	[ "$WMD77" = yes ]   && include_wmd77
-	[ "$XFCE" = yes ]    && include_xfce
-	[ "$X11" = yes ]     && include_x11
+	_include_base
+	_include_integrity
+	include_greetd
 
-	# Panel and dock favourites name Brave's .desktop file, which musl builds
-	# don't have: point them at Firefox's (as include_plasma does for
-	# LibreWolf). Key bindings and menus use d77-browser instead.
-	if [ -n "$MUSL" ]; then
-		grep -rlZ -e 'brave-browser\.desktop' -e '"brave-browser"' "$INCLUDEDIR"/etc 2>/dev/null |
-			xargs -0 -r sed -i -e 's/brave-browser\.desktop/firefox.desktop/g' \
-				-e 's/"brave-browser"/"firefox"/g'
-	fi
-
-	case "$TEXT_EDITOR" in
-		"") ;;
-		none) rm -f "$INCLUDEDIR"/etc/skel/.config/mimeapps.list ;;
-		*) sed -i "s/org\.xfce\.mousepad\.desktop/$TEXT_EDITOR/" "$INCLUDEDIR"/etc/skel/.config/mimeapps.list ;;
-	esac
-
-	if [ "$WANT_INSTALLER" = yes ]; then
-		include_installer
-	else
-		mkdir -p "$INCLUDEDIR"/usr/bin
-		printf "#!/bin/sh\necho 'd77void-installer is not supported on this live image'\n" > "$INCLUDEDIR"/usr/bin/d77void-installer
-		chmod 755 "$INCLUDEDIR"/usr/bin/d77void-installer
-	fi
-
-	if [ "$variant" != base ]; then
-		setup_pipewire
-	fi
-
-	./mklive.sh -a "$TARGET_ARCH" -o "$IMG" -p "$PKGS" -S "$SERVICES" -I "$INCLUDEDIR" \
-		${KERNEL_PKG:+-v $KERNEL_PKG} ${REPO} "$@"
+	# shellcheck disable=SC2086
+	./mklive.sh -a "$ARCH" -o "$IMG" -p "$PKGS" -S "$SERVICES" -I "$INCLUDEDIR" \
+		-T "D77orphaned" ${REPO} "$@"
 
 	cleanup
 }
 
-if [ ! -x mklive.sh ]; then
-	echo mklive.sh not found >&2
-	exit 1
-fi
-
-if [ -n "$TRIPLET" ]; then
-	IFS=: read -r ARCH DATE VARIANT _ < <( echo "$TRIPLET" | sed -Ee 's/^(.+)-([0-9rc]+)-(.+)$/\1:\2:\3/' )
-	build_variant "$VARIANT" "$@"
-else
-	for image in $IMAGES; do
-		build_variant "$image" "$@"
-	done
-fi
+build_variant "$@"

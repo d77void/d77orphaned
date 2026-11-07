@@ -1,0 +1,9 @@
+# /etc/hosts — D77orphaned
+127.0.0.1	localhost
+::1		localhost
+127.0.1.1	d77orphaned
+
+# D1: Utumno's weather widget queries wttr.in on its own, which exposes the
+# public IP to a third party whenever a graphical session starts. Blocked
+# here (Utumno shows "weather unavailable"); remove this line to allow it.
+0.0.0.0		wttr.in

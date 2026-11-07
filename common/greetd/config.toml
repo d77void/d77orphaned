@@ -1,0 +1,18 @@
+# greetd — D77orphaned
+[terminal]
+# VT 7: TTYs 1-6 stay free for the console.
+vt = 7
+
+# Greeter shown after the first session ends (quickshell-d77 greeter under
+# a disposable dwl). Lists the pwm (X11) and wasp (Wayland) sessions.
+[default_session]
+command = "/etc/greetd/greet-dwl.sh"
+user = "_greeter"
+
+# D5/D6: autologin once at boot into pwm (X11 — most compatible hardware-wise),
+# launched the same way the greeter launches X11 sessions. The user is filled
+# in at boot by dracut/vmklive/display-manager-autologin.sh.
+# Boot with d77.nogui ("console only" entry) to keep greetd down entirely.
+[initial_session]
+command = "startx /usr/bin/env dbus-launch pwm"
+user = "@@LIVE_USER@@"
