@@ -32,10 +32,31 @@
 3. **wasp did not start without a GPU** (T6: `Software rendering detected … couldn't create renderer`). scenefx needs EGL/GLES and refuses llvmpipe. Fix: `WLR_RENDERER_ALLOW_SOFTWARE=1` in `/etc/profile.d/`, which greetd sources before each session.
 4. **Empty EFI image without an error** (build). The inherited `mklive.sh` mounted `efiboot.img` with errors discarded. Fix: the mount is checked, there is an mtools fallback, and the build fails if `BOOTX64.EFI` is missing.
 
+## Second round (2026-11-07, Void host with KVM)
+
+- **Host:** the user's Acer, Void Linux x86_64 glibc, QEMU 11.1.3 with **KVM**, OVMF from `edk2-ovmf` (`/usr/share/edk2/x64/OVMF_*.4m.fd`). Boot to login: about 15 s.
+- **Build:** `sudo ./mkorphaned.sh -n -r ~/d77void-pkgs/hostdir/binpkgs/d77 -r https://repo-default.voidlinux.org/current/nonfree`. The d77 packages came from the local xbps-src repository (build log: pwm 0.6.7_1, wasp 0.10.1_1, utumno 0.2.0_1, qsd77 1.3.3_1, dwl 0.9_1, d77-st 0.9.3_1, scenefx0.5 0.5_1, kantele 0.3.0_1). The package cache was copied from d77void's `xbps-cachedir-x86_64` (btrfs reflink).
+- **ISO:** `d77orphaned-live-x86_64-20261107.iso`, 1,698,652,160 bytes, sha256 `80420001c7c99b8f5e925988d5acf7fbcba55cd32c3f5e45981ad218bc220c83`, kernel 6.18.62_1. Built from this round's working tree (the build guard and the `nomodeset.sh` change below).
+
+### Results
+
+| # | Test | Result | Evidence |
+|---|---|---|---|
+| T3 | UEFI GRUB menu | **PASS** | Screenshot at 12 s: GRUB 2.12 menu with the normal, RAM, *graphics disabled* and *console only* entries, Memtest86+, UEFI firmware settings, restart and shutdown |
+| T5 | `nomodeset` | **PASS** | No `/dev/dri` or `/dev/fb0`. Xorg falls back to `vesa` (VBE 3.0, 1920×1080) and the pwm session comes up. After `pkill pwm`, greetd shows `agreety` on VT 7 and `anon`/`voidlinux` logs into a shell |
+| T6 | autologin pwm → greeter → wasp + Utumno | **PASS (6/6), but autologin failed once** | wasp, qsd77 and Utumno came up from the greeter in all 6 runs. Kantele ran on X11 and on Wayland (`WAYLAND_DISPLAY=wayland-0`, `XDG_RUNTIME_DIR=/run/user/1000`, read from Utumno's `qs`). The phase-5 case (a wasp login ending in pwm) did not reproduce. In 1 of 6 runs the pwm autologin had already died before the first check; this is the pwm race below |
+
+### Defects found and fixed in this round
+
+5. **The build rewrote the host's GRUB configuration.** During the first build on the Acer, the host's `/boot/grub/grub.cfg` was regenerated (os-prober included, which also touched `/var/lib/os-prober/labels`). No other host files changed, and the user found the boot menu unchanged after a reboot. Cause, reproduced in a disposable VM with a stub `grub-mkconfig`: `mklive.sh` installs `memtest86+` into the helper root `void-target`, which has no `/bin/sh`. XBPS then runs the package's post-install script **on the host** (working directory `void-target`), and that script runs `grub-mkconfig -o /boot/grub/grub.cfg` whenever `/boot/grub` exists. Fix: `mkorphaned.sh` now runs the whole build in a private mount namespace with an empty tmpfs over `/boot`, so the script finds no `/boot/grub` and does nothing. It also fails the build if the host's `grub.cfg` changes. Verified by a rebuild: `grub-mkconfig` did not run, and the host's `grub.cfg` (mtime and size) and all other files under `/` were unchanged, with no build mounts left behind. **The same `mklive.sh` is inherited from d77void, so its builds very likely do the same (not verified there).**
+6. **pwm dies at startup about 5% of the time** (T5, and the T6 autologin failures). The error is `BadDrawable` on `X_CopyArea` while creating the status bar. penrose_ui creates the bar's window on its x11rb connection and draws to it through a separate Xlib connection. The X server orders requests only within one connection, so the first copy can arrive before the window exists, and Xlib's default handler exits the process. In the same VM, the pwm 0.6.7 binary failed 6 of 120 starts (3/60 with KMS, 3/60 with `nomodeset`). The rate does not depend on `nomodeset`; in phase 5 it only looked that way. Fix, outside this repository (D15): pwm branch `fix-bar-window-race` (commit `4ce82db`, not pushed) vendors penrose_ui 0.4.0 with one round trip after creating the window. That binary failed 0 of 120 starts in the same test. **The ISO still ships pwm 0.6.7** until a new pwm release is tagged and packaged.
+7. **No way out under `nomodeset` once the first session ends.** The greeter runs under dwl (wlroots), which cannot start without DRM, so greetd kept restarting it every ~10 s on a black screen. Fix (D16): with `nomodeset`, `dracut/vmklive/nomodeset.sh` switches greetd's `default_session` to `agreety --cmd /bin/bash`.
+
 ## Open
 
-- **T5 `nomodeset`:** black screen and pwm does not stay running. Possible causes, none verified: without KMS Xorg picks a driver that fails on QEMU's std VGA, or the greeter (dwl) fails again without `/dev/dri` and greetd loops.
-- **Intermittent T6:** one of three wasp login attempts from the greeter ended in pwm. greetd logs to syslog and the ISO has no syslog daemon; in a second round greetd should log via `svlogd` to catch this.
+- **pwm release:** tag and package the pwm fix (D15), rebuild the ISO and rerun T5/T6.
+- **T12 real hardware:** still to do on the user's side (T480s/Libreboot): boot, pwm, wasp + Utumno with a real GPU, Wi-Fi via `wpa_supplicant`, the Kantele keyboard layout, and the `nomodeset` and console-only entries. No disks with data attached.
+- **Phase-5 T6 case** (wasp login ending in pwm): not reproduced in 6 runs with greetd logging to `/var/log/greetd` (the harness now sets that up). Treated as unexplained, not fixed.
 - **Cosmetic:**
   - on wasp with software rendering, the background shows leftovers of the greeter, and there is a black block left of Utumno's bar;
   - Utumno's network widget says "offline" because it reads NetworkManager state, which the ISO does not have; DHCP works.

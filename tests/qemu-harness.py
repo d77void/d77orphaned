@@ -191,6 +191,10 @@ def main():
     ap.add_argument("--extra", default="")
     ap.add_argument("--wait", type=int, default=300, help="seconds before the 'booted' screenshot")
     ap.add_argument("--downs", type=int, default=1, help="sessions: Down presses to reach wasp")
+    ap.add_argument("--menu-wait", type=int, default=None,
+                    help="bios-menu/uefi-menu: seconds before the menu screenshot (default 25/60)")
+    ap.add_argument("--settle", type=int, default=90,
+                    help="sessions: seconds to let Kantele or the greeter settle at each step")
     a = ap.parse_args()
     os.makedirs(a.workdir, exist_ok=True)
     here = os.path.dirname(os.path.abspath(__file__))
@@ -203,7 +207,7 @@ def main():
             args += ["-drive", f"if=pflash,format=raw,readonly=on,file={OVMF_CODE}",
                      "-drive", f"if=pflash,format=raw,file={vars_copy}"]
         vm = VM(a.workdir, a.scenario, args)
-        time.sleep(25 if a.scenario == "bios-menu" else 60)
+        time.sleep(a.menu_wait if a.menu_wait is not None else (25 if a.scenario == "bios-menu" else 60))
         print("menu:", vm.screenshot(f"{a.scenario}-menu"))
         time.sleep(a.wait)
         print("booted:", vm.screenshot(f"{a.scenario}-booted"))
@@ -223,15 +227,18 @@ def main():
         # (typed via the QEMU monitor) -> Kantele (Wayland). Screenshots at each step.
         vm = VM(a.workdir, "sessions", direct(a.iso, a.workdir))
         vm.login()
+        # greetd logs to syslog and the ISO has no syslog daemon: log to a file instead.
+        vm.run("mkdir -p /var/log/greetd; printf '#!/bin/sh\\nexec svlogd -tt /var/log/greetd\\n' "
+               "> /etc/sv/greetd/log/run; sv restart greetd/log", 60)
         time.sleep(a.wait)
         print(vm.run("pgrep -a pwm; pgrep -a Xorg", 120))
         print("pwm:", vm.screenshot("t6-pwm"))
         vm.run("su - anon -c 'DISPLAY=:0 XAUTHORITY=/home/anon/.Xauthority setsid kantele >/tmp/kantele-x11.log 2>&1 &'", 60)
-        time.sleep(90)
+        time.sleep(a.settle)
         print("kantele x11:", vm.screenshot("t6-pwm-kantele"))
         print(vm.run("pgrep -a -f kantele; tail -5 /tmp/kantele-x11.log", 60))
         vm.run("pkill -x pwm", 60)
-        time.sleep(90)
+        time.sleep(a.settle)
         print("greeter:", vm.screenshot("t6-greeter"))
         def keys(text):
             for ch in text:
@@ -248,10 +255,15 @@ def main():
         print(vm.run("pgrep -a wasp; pgrep -a qs; pgrep -a dwl; "
                      "tail -n 40 /home/anon/.local/state/wasp/wasp.log* 2>&1", 120))
         print("wasp:", vm.screenshot("t6-wasp"))
-        vm.run("su - anon -c 'XDG_RUNTIME_DIR=/run/user/1000 WAYLAND_DISPLAY=wayland-0 QT_QPA_PLATFORM=wayland setsid kantele >/tmp/kantele-wl.log 2>&1 &'", 60)
-        time.sleep(90)
+        # wasp sets WAYLAND_DISPLAY at runtime, so /proc/<wasp>/environ lacks it:
+        # read the session's values from a client it started (Utumno's qs).
+        print(vm.run("p=$(pgrep -xo qs -u anon); "
+                     "env=$(tr '\\0' '\\n' </proc/$p/environ | grep -E '^(WAYLAND_DISPLAY|XDG_RUNTIME_DIR)=' | tr '\\n' ' '); "
+                     "echo \"session env: $env\"; "
+                     "su - anon -c \"$env QT_QPA_PLATFORM=wayland setsid kantele >/tmp/kantele-wl.log 2>&1 &\"", 60))
+        time.sleep(a.settle)
         print("kantele wayland:", vm.screenshot("t6-wasp-kantele"))
-        print(vm.run("pgrep -a -f kantele; tail -5 /tmp/kantele-wl.log; ls /run/user/1000", 60))
+        print(vm.run("pgrep -a -f kantele; tail -5 /tmp/kantele-wl.log; tail -n 20 /var/log/greetd/current", 60))
         vm.quit()
 
     elif a.scenario == "integrity":
