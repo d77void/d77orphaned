@@ -54,6 +54,9 @@ Ao aprovar este documento autorizas a **fase 5 — protótipo**: criar o reposit
 
 † Pacotes do repositório d77void (assinatura verificada, `keys/2b:d7:…`). No fecho entram ainda `d77-st-terminfo`, `font-JetBrainsMono` e `scenefx0.5`, também do d77void.
 
+### 2.5b Ferramentas d77 (acrescentado a pedido do utilizador, 2026-11-07)
+`kantele`† (GUI de definições do pwm e do wasp): +7 pacotes / ≈19 MiB sobre o resto do manifesto (Qt6/Python já presentes).
+
 ### 2.6 Serviços runit
 | Serviço | Estado | Nota |
 |---|---|---|

@@ -85,6 +85,8 @@ PKGS_OPS="tmux vim less man-db lsof strace pv zstd p7zip squashfs-tools dialog c
 PKGS_X11="xorg-minimal xorg-input-drivers xorg-video-drivers xinit setxkbmap xauth dejavu-fonts-ttf terminus-font font-misc-misc pwm d77-st dmenu dbus dbus-x11 elogind polkit"
 PKGS_WAYLAND="mesa-dri wasp utumno qsd77 quickshell matugen wmenu alacritty dunst awww"
 PKGS_LOGIN="greetd dwl"
+# d77 tools: Kantele (settings GUI for pwm and wasp).
+PKGS_D77TOOLS="kantele"
 
 # acpi-gpe-guard is not a package: its service dir is placed by
 # _include_base and linked into runsvdir there, not via -S.
@@ -154,7 +156,7 @@ include_greetd() {
 build_variant() {
 	IMG=d77orphaned-live-${ARCH}-${DATE}.iso
 
-	PKGS="$PKGS_DISKS $PKGS_RECOVERY $PKGS_FS $PKGS_VOLUMES $PKGS_BOOT $PKGS_NET $PKGS_NETDIAG $PKGS_FORENSICS $PKGS_HW $PKGS_OPS $PKGS_X11 $PKGS_WAYLAND $PKGS_LOGIN"
+	PKGS="$PKGS_DISKS $PKGS_RECOVERY $PKGS_FS $PKGS_VOLUMES $PKGS_BOOT $PKGS_NET $PKGS_NETDIAG $PKGS_FORENSICS $PKGS_HW $PKGS_OPS $PKGS_X11 $PKGS_WAYLAND $PKGS_LOGIN $PKGS_D77TOOLS"
 
 	_include_identity
 	_include_base
