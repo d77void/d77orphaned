@@ -27,6 +27,11 @@
 ```sh
 # as root, from the repo root
 xbps-install -S qemu qemu-system-amd64 edk2-ovmf xorriso ImageMagick python3 mtools
+# Reuse the package cache from the user's d77void builds instead of
+# downloading again (ask the user for the d77void checkout path). Copying keeps
+# the d77void cache untouched; pointing -c/-H at it directly also works but
+# adds the extra packages to it.
+cp -a /path/to/d77void/xbps-cachedir-x86_64 ./xbps-cachedir-x86_64
 ./mkorphaned.sh                         # add "-- -k pt-latin1" etc. if wanted
 export OVMF_CODE=/usr/share/edk2/x64/OVMF_CODE.4m.fd
 export OVMF_VARS=/usr/share/edk2/x64/OVMF_VARS.4m.fd
