@@ -1,65 +1,65 @@
 # D77orphaned — Proof of Concept
 
-> **Estado: PROTÓTIPO (fase 5).** Gate aprovado em 2026-11-07 (`docs/APPROVAL_GATE.md`). O resultado dos testes está em `docs/TEST_REPORT.md`; nada além do que lá está foi testado.
+> **Status: PROTOTYPE (phase 5).** Gate approved on 2026-11-07 (`docs/APPROVAL_GATE.md`). Test results are in `docs/TEST_REPORT.md`; nothing beyond what is listed there has been tested.
 
-## Visão
+## Vision
 
-D77orphaned é uma proposta de sistema **live de recuperação, diagnóstico e análise**, baseado em **Void Linux**, com uma seleção pequena e justificada de ferramentas de segurança/pentesting para uso autorizado. Referência conceptual: **mais Grml do que Kali**. Não é uma distribuição independente, uma variante generalista do d77void, nem um substituto do Kali/Parrot/BlackArch.
+D77orphaned is a **live recovery, diagnostics and analysis system** based on **Void Linux**, with a small, justified selection of security/pentesting tools for authorized use. Conceptual reference: **more Grml than Kali**. It is not an independent distribution, a general-purpose d77void variant, or a replacement for Kali/Parrot/BlackArch.
 
-## Identidade e fronteira do repositório
+## Repository identity and boundaries
 
-- **Novo repositório Git autónomo `d77void/d77orphaned`**, na mesma organização que `d77-immutable` e os restantes projetos. Não é um subdiretório, branch ou workspace de desenvolvimento do repositório `d77void`.
-- **Toda a experimentação e todos os commits do D77orphaned ficam exclusivamente no seu próprio repositório.** Repositórios irmãos são dependências externas, não locais de trabalho.
-- A auditoria de `d77void`, `mkd77.sh` e do repositório binário é **somente de leitura**. Se for útil aproveitar código, propor cópia/adaptação local no novo repositório, com proveniência e licença respeitadas; nunca editar o original.
-- Nenhum agente pode criar ou publicar o repositório remoto sem autorização; inicialmente pode preparar o diretório Git local e a documentação, se solicitado.
+- **New standalone Git repository `d77void/d77orphaned`**, in the same organization as `d77-immutable` and the other projects. It is not a subdirectory, branch or development workspace of the `d77void` repository.
+- **All D77orphaned experimentation and commits live exclusively in its own repository.** Sibling repositories are external dependencies, not places to work.
+- Auditing `d77void`, `mkd77.sh` and the binary repository is **read-only**. If reusing code is useful, propose a local copy/adaptation in this repository, respecting provenance and license; never edit the original.
+- No agent may create or publish the remote repository without authorization; initially it may prepare the local Git directory and documentation, if asked.
 
-## Decisões de arquitetura já tomadas
+## Architecture decisions already made
 
-- Base Void Linux e gestão de pacotes XBPS; **não** criar gestor de pacotes, init ou repositório binário próprio.
-- Uma ISO inicialmente; consola/TTY plenamente utilizável sem sessão gráfica.
-- Dois ambientes opcionais na mesma ISO: **pwm (X11)** e **wasp (Wayland) + Utumno**. Utumno é Wayland-only e não deve ser proposta para pwm/X11.
-- Reutilizar shells, compositores, ferramentas e pacotes **existentes** do ecossistema d77, sem alterar os projetos generalistas para servir esta ISO.
-- Launcher existente para abrir aplicações. **Sem** dashboard `forensics.qml`, integrações novas no qsd77 ou painéis especiais na primeira prova de conceito.
-- Persistência **opcional e apenas de dados** numa partição separada; sem overlay persistente de `/`, sem persistência integral de pacotes. Preferir LUKS2 quando houver dados sensíveis.
-- Nenhuma operação destrutiva sobre discos alvo sem escolha explícita e confirmação; leitura não é sinónimo automático de preservação forense.
+- Void Linux base and XBPS package management; **do not** create a package manager, init system or binary repository of our own.
+- A single ISO initially; console/TTY fully usable without a graphical session.
+- Two optional environments on the same ISO: **pwm (X11)** and **wasp (Wayland) + Utumno**. Utumno is Wayland-only and must not be proposed for pwm/X11.
+- Reuse **existing** shells, compositors, tools and packages from the d77 ecosystem, without changing the general-purpose projects to serve this ISO.
+- Existing launcher to open applications. **No** `forensics.qml` dashboard, new qsd77 integrations or special panels in the first proof of concept.
+- **Optional, data-only** persistence on a separate partition; no persistent overlay of `/`, no full package persistence. Prefer LUKS2 when sensitive data is involved.
+- No destructive operation on target disks without explicit choice and confirmation; reading is not automatically the same as forensic preservation.
 
-## Ordem de trabalho obrigatória
+## Mandatory work order
 
-1. Ler `AGENTS.md`, `docs/RESEARCH_PLAN.md`, `docs/PACKAGE_INVENTORY.md` e `docs/INTEGRATION_CONTRACT.md`.
-2. Inventariar o estado **real** do repositório d77void, dos pacotes próprios e do `mkd77.sh` — apenas leitura.
-3. Investigar pacotes Void e ferramentas de recuperação/segurança com evidências reproduzíveis.
-4. Classificar os pacotes, estimar esforço de manutenção e **apresentar decisões ao utilizador**.
-5. Só depois de aprovação, preparar um plano de implementação e um protótipo mínimo.
+1. Read `AGENTS.md`, `docs/RESEARCH_PLAN.md`, `docs/PACKAGE_INVENTORY.md` and `docs/INTEGRATION_CONTRACT.md`.
+2. Inventory the **actual** state of the d77void repository, its own packages and `mkd77.sh` — read-only.
+3. Research Void packages and recovery/security tools with reproducible evidence.
+4. Classify the packages, estimate maintenance effort and **present decisions to the user**.
+5. Only after approval, prepare an implementation plan and a minimal prototype.
 
-**Gate:** na fase de investigação, nenhuma implementação ou alteração a scripts de build. **Em nenhuma fase existe autorização implícita para editar repositórios irmãos**, incluindo `d77void` e `d77-immutable`. O `mkd77.sh` original é sempre apenas de leitura; adaptações futuras, se aprovadas, vivem em `d77orphaned`.
+**Gate:** during the research phase, no implementation or changes to build scripts. **In no phase is there implicit authorization to edit sibling repositories**, including `d77void` and `d77-immutable`. The original `mkd77.sh` is always read-only; future adaptations, if approved, live in `d77orphaned`.
 
-## Escopo inicial
+## Initial scope
 
-Recuperação de dados, diagnóstico de discos e sistemas de ficheiros, inspeção de boot/EFI, rede de emergência e ferramentas limitadas de análise e teste de segurança autorizado. A lista final depende da investigação; nomes sugeridos nos documentos são **candidatos, não pacotes confirmados**.
+Data recovery, disk and filesystem diagnostics, boot/EFI inspection, emergency networking and a limited set of analysis and authorized security-testing tools. The final list depends on the research; names suggested in the documents are **candidates, not confirmed packages**.
 
-## Fora do escopo da PoC
+## Out of scope for the PoC
 
-Nova distro independente, kernel próprio, ambiente gráfico novo, interface QML forense, alterações a Utumno/qsd77/pwm/wasp, catálogo de centenas de ferramentas ofensivas, sincronização de credenciais, persistência da raiz, automações destrutivas e infraestrutura de pacotes duplicada.
+A new independent distro, a custom kernel, a new graphical environment, a forensic QML interface, changes to Utumno/qsd77/pwm/wasp, a catalogue of hundreds of offensive tools, credential syncing, root persistence, destructive automation and duplicated package infrastructure.
 
-## Critério de sucesso
+## Success criterion
 
-Uma imagem que arranque em hardware real e VM, forneça consola útil, disponibilize ferramentas **verificadas**, permita iniciar cada sessão gráfica de forma controlada, não altere discos alvo por defeito e continue operacional sem partição persistente. Não prometer capacidades não testadas.
+An image that boots on real hardware and in a VM, provides a useful console, offers **verified** tools, lets each graphical session be started in a controlled way, does not modify target disks by default and keeps working without a persistent partition. Do not promise untested capabilities.
 
-## Origem do código
+## Code origin
 
-Este repositório começou como **clone integral do `d77void/d77void` no commit `c567d0cf`** (com histórico) e foi depois podado para a PoC. `git diff c567d0cf` mostra tudo o que foi retirado ou alterado. O builder (`mklive.sh`, `lib.sh`, `dracut/`, `grub/`, `isolinux/`) deriva do void-mklive — BSD-2-Clause, ver `COPYING`; o restante é MIT (`LICENSE`).
+This repository started as a **full clone of `d77void/d77void` at commit `c567d0cf`** (with history) and was then pruned for the PoC. `git diff c567d0cf` shows everything that was removed or changed. The builder (`mklive.sh`, `lib.sh`, `dracut/`, `grub/`, `isolinux/`) derives from void-mklive — BSD-2-Clause, see `COPYING`; the rest is MIT (`LICENSE`).
 
-## Construir
+## Building
 
-Num host Void Linux x86_64, como root, a partir da raiz do repositório:
+On a Void Linux x86_64 host, as root, from the repository root:
 
 ```sh
-./mkorphaned.sh                         # d77orphaned-live-x86_64-AAAAMMDD.iso
-./mkorphaned.sh -- -k pt-latin1 -l pt_PT.UTF-8   # opções extra para o mklive.sh
+./mkorphaned.sh                                   # d77orphaned-live-x86_64-YYYYMMDD.iso
+./mkorphaned.sh -- -k pt-latin1 -l pt_PT.UTF-8    # extra options for mklive.sh
 ```
 
-Usa por defeito os repositórios d77void (SourceForge) e Void nonfree (`nmap`) além dos oficiais. Ferramentas do host: xbps, `mkfs.vfat`, `losetup`, e `mtools` se o kernel do host não montar vfat.
+By default it uses the d77void (SourceForge) and Void nonfree (`nmap`) repositories in addition to the official ones. Host tools: xbps, `mkfs.vfat`, `losetup`, and `mtools` if the host kernel cannot mount vfat.
 
-## Testar
+## Testing
 
-`tests/qemu-harness.py` (host, QEMU; KVM opcional) corre os cenários do plano de testes; `tests/check-tools.sh` e `tests/integrity-*.sh` correm dentro da VM. Os testes de integridade criam e destroem discos **descartáveis** na pasta de trabalho; nunca correr `integrity-prepare.sh` em hardware real.
+`tests/qemu-harness.py` (host, QEMU; KVM optional) runs the test plan scenarios; `tests/check-tools.sh` and `tests/integrity-*.sh` run inside the VM. The integrity tests create and destroy **disposable** disks in the working directory; never run `integrity-prepare.sh` on real hardware.

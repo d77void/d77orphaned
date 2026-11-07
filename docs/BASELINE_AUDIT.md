@@ -1,174 +1,175 @@
-# BASELINE_AUDIT — Fase 0 (somente leitura)
+# BASELINE_AUDIT — Phase 0 (read-only)
 
-- **Data:** 2026-11-07
-- **Repositório auditado:** `https://github.com/d77void/d77void`, branch `main`, commit `c567d0cf` (2026-11-05), versão `0.26`. Clone limpo, sem alterações locais. 1 submódulo (`common/.bash_it`, Bash-it), não inicializado.
-- **Índices consultados (descarregados e lidos, nada instalado):**
-  - Void `current/x86_64-repodata`, `current/nonfree/x86_64-repodata`, e equivalentes `musl`
-  - d77void `sourceforge.net/projects/d77void/files/d77void-repo/x86_64-repodata` e `d77void-musl/x86_64-musl-repodata`
-- **Pacotes d77 abertos para inspeção (ELF/ficheiros):** `qsd77-1.3.3_1`, `utumno-0.2.0_1`, `wasp-0.10.1_1`, `pwm-0.6.7_1` (x86_64).
-- **Ambiente da auditoria:** host Ubuntu 24.04 (não Void). **Nada foi construído, instalado ou arrancado.** Nenhum ficheiro do d77void foi alterado.
+- **Date:** 2026-11-07
+- **Audited repository:** `https://github.com/d77void/d77void`, branch `main`, commit `c567d0cf` (2026-11-05), version `0.26`. Clean clone, no local changes. 1 submodule (`common/.bash_it`, Bash-it), not initialized.
+- **Indexes consulted (downloaded and read, nothing installed):**
+  - Void `current/x86_64-repodata`, `current/nonfree/x86_64-repodata`, and the `musl` equivalents
+  - d77void `sourceforge.net/projects/d77void/files/d77void-repo/x86_64-repodata` and `d77void-musl/x86_64-musl-repodata`
+- **d77 packages opened for inspection (ELF/files):** `qsd77-1.3.3_1`, `utumno-0.2.0_1`, `wasp-0.10.1_1`, `pwm-0.6.7_1` (x86_64).
+- **Audit environment:** Ubuntu 24.04 host (not Void). **Nothing was built, installed or booted.** No d77void file was modified.
 
-Legenda: **[OBS]** observado no código · **[VER]** verificado por comando · **[INF]** inferido · **[PROP]** proposto · **[DESC]** desconhecido
+Legend: **[OBS]** observed in the code · **[VER]** verified by command · **[INF]** inferred · **[PROP]** proposed · **[UNK]** unknown
 
 ---
 
-## 1. O que é o `mkd77.sh`
+## 1. What `mkd77.sh` is
 
-- [OBS] O repositório é um **fork do `void-mklive`** (README). Licenças: `COPYING` BSD-2 (void-mklive, Juan RP / Dave Elusive) e `LICENSE` MIT (Daniel Azevedo, 2025).
-- [OBS] `mkd77.sh` é um **wrapper de `mklive.sh`**, adaptado de `mkiso.sh`. Não gera ISO sozinho: monta `PKGS`, `SERVICES` e um diretório temporário `INCLUDEDIR`, e no fim chama:
+- [OBS] The repository is a **fork of `void-mklive`** (README). Licenses: `COPYING` BSD-2 (void-mklive, Juan RP / Dave Elusive) and `LICENSE` MIT (Daniel Azevedo, 2025).
+- [OBS] `mkd77.sh` is a **wrapper around `mklive.sh`**, adapted from `mkiso.sh`. It does not build the ISO itself: it assembles `PKGS`, `SERVICES` and a temporary `INCLUDEDIR`, and finally calls:
   ```
   ./mklive.sh -a "$TARGET_ARCH" -o "$IMG" -p "$PKGS" -S "$SERVICES" -I "$INCLUDEDIR" [-v kernel] [-r repo…] "$@"
   ```
-- [OBS] Pontos de entrada: `d77` → `mkd77.sh`; `d77nc` → `--nc`; `musl-d77` → `--musl`; `musl-d77nc` → `--musl --nc`.
-- [OBS] CLI: `-a arch`, `-b variante` (repetível), `-d data`, `-t arch-data-variante`, `-r repo`, `--musl`, `--nc`, `-h`, `-V`; tudo depois de `--` passa para `mklive.sh`.
-- [OBS] **As variantes estão codificadas** num `case $variant in … esac` (~30 entradas: base, pwm, wasp, qsd77, spitfire, hyprland…). **Não há forma de definir uma variante nova sem editar `mkd77.sh`.** → O D77orphaned não pode usar o `mkd77.sh` sem o modificar.
-- [OBS] Cada variante combina listas partilhadas (`D77_CORE`, `XORG_PKGS`, `WAYLAND_PKGS`, `$CALAMARES`) e funções `include_*` que copiam `common/` e `<variante>/skel` para `INCLUDEDIR/etc/skel`.
-- [OBS] O instalador (`d77void-installer`, de `installer.sh`) só é incluído com `--nc` em x86_64/i686; caso contrário é um stub.
+- [OBS] Entry points: `d77` → `mkd77.sh`; `d77nc` → `--nc`; `musl-d77` → `--musl`; `musl-d77nc` → `--musl --nc`.
+- [OBS] CLI: `-a arch`, `-b variant` (repeatable), `-d date`, `-t arch-date-variant`, `-r repo`, `--musl`, `--nc`, `-h`, `-V`; everything after `--` goes to `mklive.sh`.
+- [OBS] **Variants are hardcoded** in a `case $variant in … esac` (~30 entries: base, pwm, wasp, qsd77, spitfire, hyprland…). **There is no way to define a new variant without editing `mkd77.sh`.** → D77orphaned cannot use `mkd77.sh` without modifying it.
+- [OBS] Each variant combines shared lists (`D77_CORE`, `XORG_PKGS`, `WAYLAND_PKGS`, `$CALAMARES`) and `include_*` functions that copy `common/` and `<variant>/skel` into `INCLUDEDIR/etc/skel`.
+- [OBS] The installer (`d77void-installer`, from `installer.sh`) is only included with `--nc` on x86_64/i686; otherwise it is a stub.
 
-### `mklive.sh` (o construtor real)
-- [OBS] Opções úteis: `-p` pacotes, `-S` serviços, `-I` diretório de inclusão (repetível), `-C` cmdline do kernel, `-T` título, `-k` keymap, `-l` locale, `-x` script pós-setup, `-c/-H` caches, `-s/-i` compressão, `-v` kernel.
-- [OBS] Obriga a ser executado **a partir da raiz do repositório** (`. ./lib.sh`, `keys/`, `dracut/`, `grub/`, `isolinux/` por caminho relativo).
-- [OBS] Escreve `xbps-cachedir-*` e `mklive-build.*` no diretório atual, salvo `-c`/`-H` e a variável `ROOTDIR`.
-- [OBS] Acrescenta **sempre** os repositórios Void oficiais (`current`, `current/musl`, `current/aarch64`) aos `-r` passados.
-- [OBS] ISO híbrida (isolinux BIOS + GRUB EFI em partição GPT anexada), squashfs xz, overlay **overlayfs**, label fixa `VOID_LIVE`. Em x86 inclui sempre `syslinux grub-i386-efi grub-x86_64-efi memtest86+` → **o memtest86+ já vem no menu de arranque**.
-- [OBS] Cmdline de todas as entradas GRUB/isolinux: `root=live:CDLABEL=VOID_LIVE ro … rd.luks=0 rd.md=0 rd.dm=0 …`. **O initramfs já não monta automaticamente LUKS, MD nem DM.** Ver §5 para o que acontece depois do pivot.
-- [OBS] Entradas: normal, RAM (`rd.live.ram`), sem gráficos (`nomodeset`), e as três com síntese de voz.
+### `mklive.sh` (the actual builder)
+- [OBS] Useful options: `-p` packages, `-S` services, `-I` include directory (repeatable), `-C` kernel cmdline, `-T` title, `-k` keymap, `-l` locale, `-x` post-setup script, `-c/-H` caches, `-s/-i` compression, `-v` kernel.
+- [OBS] Must be run **from the repository root** (`. ./lib.sh`, `keys/`, `dracut/`, `grub/`, `isolinux/` by relative path).
+- [OBS] Writes `xbps-cachedir-*` and `mklive-build.*` into the current directory, unless `-c`/`-H` and the `ROOTDIR` variable are used.
+- [OBS] **Always** appends the official Void repositories (`current`, `current/musl`, `current/aarch64`) to the given `-r`.
+- [OBS] Hybrid ISO (isolinux BIOS + GRUB EFI in an appended GPT partition), xz squashfs, **overlayfs** overlay, fixed label `VOID_LIVE`. On x86 it always includes `syslinux grub-i386-efi grub-x86_64-efi memtest86+` → **memtest86+ is already in the boot menu**.
+- [OBS] Cmdline of every GRUB/isolinux entry: `root=live:CDLABEL=VOID_LIVE ro … rd.luks=0 rd.md=0 rd.dm=0 …`. **The initramfs already does not auto-mount LUKS, MD or DM.** See §5 for what happens after the pivot.
+- [OBS] Entries: normal, RAM (`rd.live.ram`), no graphics (`nomodeset`), and three with speech synthesis.
 
-### Módulo dracut `vmklive` (comportamento live)
+### `vmklive` dracut module (live behaviour)
 - [OBS] `adduser.sh`:
-  - cria o utilizador `anon` com os grupos `audio,video,wheel`;
-  - **define a palavra-passe `voidlinux` para root e para anon**;
-  - dá `NOPASSWD: ALL` no sudo;
-  - escreve uma regra polkit que **autoriza tudo ao grupo `wheel` sem pedir nada**.
-- [OBS] Herdado do void-mklive, mas relevante: `mkd77.sh` ativa **`sshd` em todas as variantes** (`SERVICES="sshd chronyd"`). Ver §5.
+  - creates user `anon` in groups `audio,video,wheel`;
+  - **sets the password `voidlinux` for root and anon**;
+  - grants `NOPASSWD: ALL` in sudo;
+  - writes a polkit rule that **authorizes everything for group `wheel` without asking**.
+- [OBS] Inherited from void-mklive, but relevant: `mkd77.sh` enables **`sshd` in every variant** (`SERVICES="sshd chronyd"`). See §5.
 
-## 2. Repositório binário d77void
+## 2. d77void binary repository
 
-- [VER] x86_64: **74 pacotes**; x86_64-musl: **38 pacotes**. Assinados com RSA-4096, `signature-by: Daniel Azevedo <daniazevedo77@posteo.net>`.
-- [VER] A chave pública no `index-meta.plist` é **idêntica byte a byte** a `keys/2b:d7:d1:cf:67:ab:53:3a:56:03:f5:f0:c2:de:a6:1a.plist` no repositório. As outras duas chaves em `keys/` são da Void Linux. **Não há chaves privadas no repositório.**
-- [OBS] URL documentado no INSTALL.md: `https://sourceforge.net/projects/d77void/files/d77void-repo` (e `d77void-musl`).
-- [VER] Diferenças relevantes entre glibc e musl:
+- [VER] x86_64: **74 packages**; x86_64-musl: **38 packages**. Signed with RSA-4096, `signature-by: Daniel Azevedo <daniazevedo77@posteo.net>`.
+- [VER] The public key in `index-meta.plist` is **byte-for-byte identical** to `keys/2b:d7:d1:cf:67:ab:53:3a:56:03:f5:f0:c2:de:a6:1a.plist` in the repository. The other two keys in `keys/` are Void Linux's. **There are no private keys in the repository.**
+- [OBS] URL documented in INSTALL.md: `https://sourceforge.net/projects/d77void/files/d77void-repo` (and `d77void-musl`).
+- [VER] Relevant glibc vs musl differences:
 
-| Pacote | x86_64 | x86_64-musl |
+| Package | x86_64 | x86_64-musl |
 |---|---|---|
 | `pwm` | 0.6.7_1 | 0.6.7_1 |
-| `wasp` | 0.10.1_1 | **AUSENTE** |
-| `scenefx0.5` (dependência do wasp) | 0.5_1 | **AUSENTE** |
+| `wasp` | 0.10.1_1 | **MISSING** |
+| `scenefx0.5` (wasp dependency) | 0.5_1 | **MISSING** |
 | `utumno` | 0.2.0_1 | 0.2.0_1 |
 | `qsd77` | 1.3.3_1 | 1.3.3_1 |
-| `fresh-editor`, `joshuto`, `ollama` | presentes | ausentes |
+| `fresh-editor`, `joshuto`, `ollama` | present | missing |
 
-→ **[VER] O ambiente wasp + Utumno só existe hoje em x86_64 glibc.** Em musl obrigaria a portar `wasp` e `scenefx0.5`.
+→ **[VER] The wasp + Utumno environment currently exists only on x86_64 glibc.** musl would require porting `wasp` and `scenefx0.5`.
 
-## 3. Componentes gráficos — o que realmente precisam
+## 3. Graphical components — what they actually need
 
 ### pwm (X11)
-- [VER] Binário Rust; `NEEDED`: libX11, libXft, fontconfig, libgcc_s, libc. Depende de `dmenu`, `d77-st`, `wireless_tools`, `font-JetBrainsMono`.
-- [VER] O pacote traz `/etc/xdg/pwm/startup.sh`, que arranca **`udiskie -a` (montagem automática)**, além de conky, feh, dunst, xcompmgr, xautolock+slock, redshift e sxhkd.
-- [OBS] `config.toml.example` documenta `startup_script = "/etc/xdg/pwm/startup.sh"`. **[INF]** Isto pode ser sobreposto na configuração do utilizador, sem tocar no pacote. Falta testar.
-- [OBS] A sessão (`pwm.desktop`) é `dbus-launch pwm`. Na variante d77void o login é feito pelo SDDM.
+- [VER] Rust binary; `NEEDED`: libX11, libXft, fontconfig, libgcc_s, libc. Depends on `dmenu`, `d77-st`, `wireless_tools`, `font-JetBrainsMono`.
+- [VER] The package ships `/etc/xdg/pwm/startup.sh`, which starts **`udiskie -a` (automounting)**, plus conky, feh, dunst, xcompmgr, xautolock+slock, redshift and sxhkd.
+- [OBS] `config.toml.example` documents `startup_script = "/etc/xdg/pwm/startup.sh"`. **[INF]** This can be overridden in the user's config without touching the package. Still to be tested.
+- [OBS] The session (`pwm.desktop`) is `dbus-launch pwm`. In the d77void variant, login is handled by SDDM.
 
 ### wasp + Utumno (Wayland)
-- [VER] `wasp`: binário C (dwl), com libwlroots-0.20, libscenefx-0.5, lua5.4, fcft, libinput e xkbcommon. `wasp-session` faz `dbus-run-session -- sh -c 'wasp-statusbar | wasp'` e grava o registo em `~/.local/state/wasp/`.
-- [VER] **`utumno` é só QML** (`/usr/share/quickshell/utumno/…`) e corre com o **Quickshell** (`qs -c utumno`). O pacote **não declara** `quickshell` nem `qsd77` como dependência; declara apenas power-profiles-daemon, alsa-utils, alsa-tools, brightnessctl, wireless_tools e matugen.
-- [VER] **`qsd77` é uma CLI em Go**, ligada só a libc/libresolv, que envia chamadas IPC ao Quickshell (`qsd77 -c utumno launcher`).
-- [OBS] Na variante d77void `wasp`, o `quickshell` só entra por acaso, através de `include_greetd` (`dwl greetd quickshell`). **→ O D77orphaned tem de listar explicitamente `quickshell` e `qsd77`.**
-- [OBS] O skel do wasp (`wasp/skel/.config/wasp/config.lua`) arranca automaticamente:
-  - awww-daemon, o script de wallpaper do Utumno, dunst;
+- [VER] `wasp`: C binary (dwl) linked against libwlroots-0.20, libscenefx-0.5, lua5.4, fcft, libinput and xkbcommon. `wasp-session` runs `dbus-run-session -- sh -c 'wasp-statusbar | wasp'` and logs to `~/.local/state/wasp/`.
+- [VER] **`utumno` is QML only** (`/usr/share/quickshell/utumno/…`) and runs under **Quickshell** (`qs -c utumno`). The package **does not declare** `quickshell` or `qsd77` as dependencies; it only declares power-profiles-daemon, alsa-utils, alsa-tools, brightnessctl, wireless_tools and matugen.
+- [VER] **`qsd77` is a Go CLI**, linked only to libc/libresolv, that sends IPC calls to Quickshell (`qsd77 -c utumno launcher`).
+- [OBS] In the d77void `wasp` variant, `quickshell` only gets in by accident, through `include_greetd` (`dwl greetd quickshell`). **→ D77orphaned must list `quickshell` and `qsd77` explicitly.**
+- [OBS] The wasp skel (`wasp/skel/.config/wasp/config.lua`) autostarts:
+  - awww-daemon, Utumno's wallpaper script, dunst;
   - **`udiskie -a`**;
-  - pipewire, `qsd77 run -c utumno`, swayidle, o polkit-mate, xdg-user-dirs e `~/.auto.sh`.
-- [OBS] `~/.auto.sh` (de `common/`) abre automaticamente o `calamares` (com `sudo -E`) se estiver instalado, e depois o `d77-welcome`.
-- [VER] **O Utumno faz pedidos de rede sozinho**: `modules/Weather.qml` executa `curl https://wttr.in/…`. Não há opção de configuração para o desligar (`config/` só tem `Colors.qml`). **[INF]** Isto expõe o IP público e a geolocalização aproximada a um serviço externo sempre que a sessão gráfica arranca. É relevante numa ISO de resposta a incidentes.
-- [Utilizador, 2026-11-07] Sem rede, o Utumno funciona normalmente: o widget mostra uma indicação de indisponível ou sem rede. Isto bate com o código (`"weather unavailable"`). A falha é benigna; a questão em aberto é apenas o pedido de saída **quando há rede**. [PROP] Bloquear `wttr.in` no overlay do D77orphaned (por exemplo `0.0.0.0 wttr.in` em `/etc/hosts`), sem tocar no Utumno.
-- [OBS] O Utumno também tem o popup de chat Ollama. A variante d77void inclui o `ollama` (72 MiB) e o serviço ativo. **[DESC]** Falta saber como o Utumno se comporta sem Ollama instalado.
-- [OBS] O README do Utumno diz que foi testado com niri e Hyprland. O d77void usa-o com wasp e spitfire; o módulo de workspaces tem versões para Hyprland e Sway. **[DESC]** Falta confirmar quais widgets funcionam no wasp.
+  - pipewire, `qsd77 run -c utumno`, swayidle, polkit-mate, xdg-user-dirs and `~/.auto.sh`.
+- [OBS] `~/.auto.sh` (from `common/`) automatically opens `calamares` (via `sudo -E`) if installed, then `d77-welcome`.
+- [VER] **Utumno makes network requests on its own**: `modules/Weather.qml` runs `curl https://wttr.in/…`. There is no configuration option to turn it off (`config/` only has `Colors.qml`). **[INF]** This exposes the public IP and approximate geolocation to an external service every time the graphical session starts. Relevant for an incident-response ISO.
+- [User, 2026-11-07] Without network, Utumno works normally: the widget shows an unavailable/no-network indication. This matches the code (`"weather unavailable"`). The failure is benign; the open question is only the outgoing request **when there is a network**. [PROP] Block `wttr.in` in the D77orphaned overlay (e.g. `0.0.0.0 wttr.in` in `/etc/hosts`), without touching Utumno.
+- [OBS] Utumno also has the Ollama chat popup. The d77void variant includes `ollama` (72 MiB) with the service enabled. **[UNK]** How Utumno behaves without Ollama installed.
+- [OBS] Utumno's README says it was tested with niri and Hyprland. d77void uses it with wasp and spitfire; the workspaces module has Hyprland and Sway versions. **[UNK]** Which widgets work on wasp.
 
 ### Launcher
-- [OBS] pwm: `rofi` (via sxhkd/skel) e `dmenu` (dependência do pwm). wasp: `wmenu-run` (`wasp.menu`), o launcher do Utumno (`super+space`) e `d77run` (`super+r`).
-- [VER] `d77run` é GTK4: acrescenta 182 pacotes / 369 MiB face ao `base-system`. **[PROP]** Dispensável na PoC: `wmenu` e `dmenu` chegam.
+- [OBS] pwm: `rofi` (via sxhkd/skel) and `dmenu` (pwm dependency). wasp: `wmenu-run` (`wasp.menu`), Utumno's launcher (`super+space`) and `d77run` (`super+r`).
+- [VER] `d77run` is GTK4: it adds 182 packages / 369 MiB on top of `base-system`. **[PROP]** Not needed in the PoC: `wmenu` and `dmenu` are enough.
 
-## 4. O que se pode reutilizar **sem modificar**
+## 4. What can be reused **without modification**
 
-| Item | Reutilização | Notas |
+| Item | Reuse | Notes |
 |---|---|---|
-| `mklive.sh`, `lib.sh`, `dracut/`, `grub/`, `isolinux/`, `keys/` | **Sim**, se forem chamados como estão a partir de um checkout fixo (por exemplo um submódulo read-only num commit fixo), com `-I <overlay do d77orphaned>`, `-c/-H` e `ROOTDIR` apontados para fora do checkout | Não exige editar nada. O `mklive.sh` aceita vários `-I`, `-x` (pós-setup) e `-C`. |
-| `mkd77.sh` | **Não** | Variantes codificadas; a lógica `include_*` traz udiskie, polkit permissivo, Calamares, plymouth, etc. |
-| `common/` e skels pwm/wasp | **Parcial / desaconselhado** | Contêm automontagem e o `.auto.sh`. Melhor ter um overlay próprio, inspirado neles. |
-| `common/os-release`, branding | Não | Identidade d77void; o D77orphaned deve ter a sua. |
-| Repositório binário d77void | **Sim**, como `-r` adicional | pwm, wasp, utumno, qsd77 e d77-st; assinatura verificada. |
+| `mklive.sh`, `lib.sh`, `dracut/`, `grub/`, `isolinux/`, `keys/` | **Yes**, if called as they are from a pinned checkout (e.g. a read-only submodule at a fixed commit), with `-I <d77orphaned overlay>`, `-c/-H` and `ROOTDIR` pointing outside the checkout | Requires no edits. `mklive.sh` accepts multiple `-I`, `-x` (post-setup) and `-C`. |
+| `mkd77.sh` | **No** | Hardcoded variants; the `include_*` logic brings udiskie, permissive polkit, Calamares, plymouth, etc. |
+| `common/` and pwm/wasp skels | **Partial / not advised** | They contain automounting and `.auto.sh`. Better to have our own overlay, inspired by them. |
+| `common/os-release`, branding | No | d77void identity; D77orphaned should have its own. |
+| d77void binary repository | **Yes**, as an extra `-r` | pwm, wasp, utumno, qsd77 and d77-st; signature verified. |
 
-**[PROP] Estratégia de build:** um wrapper próprio no `d77orphaned` (manifesto de pacotes + overlay + cmdline) que chama o `mklive.sh` do d77void num **commit fixo**, sem cópia. A alternativa é copiar o `mklive.sh` e os seus ficheiros (BSD-2, manter `COPYING` e a origem), se se quiser independência total das mudanças futuras do d77void. Fica para decisão.
+**[PROP] Build strategy:** a wrapper of our own in `d77orphaned` (package manifest + overlay + cmdline) that calls d77void's `mklive.sh` at a **pinned commit**, without copying. The alternative is to copy `mklive.sh` and its files (BSD-2, keep `COPYING` and the origin), for full independence from future d77void changes. To be decided. *(Decided in D3, §9.)*
 
-## 5. Riscos de integridade e segurança herdados
+## 5. Inherited integrity and security risks
 
-| Risco | Origem | Estado |
+| Risk | Origin | Status |
 |---|---|---|
-| Montagem automática de discos alvo | `udiskie -a` no startup do pwm (no pacote) e no skel do wasp; regra polkit `50-udisks.rules` dá mount/unlock sem autenticação ao grupo `storage`; `adduser.sh` dá tudo ao `wheel` | [OBS] **Bloqueante**: o overlay do D77orphaned não pode trazer udiskie/gvfs/udisks2 em autostart. |
-| `sshd` ativo com palavra-passe conhecida (`anon:voidlinux`) | `mkd77.sh` (`SERVICES="sshd …"`) + `adduser.sh` | [OBS] Numa rede comprometida, isto é uma porta aberta. [PROP] Não ativar o sshd por defeito na PoC. |
-| Montagem automática de RAID/LVM **depois** do initramfs | Regras udev do `mdadm`/`lvm2` no sistema real; `rd.md=0 rd.dm=0` só cobrem o initramfs | [DESC] Testar em VM com RAID/LVM de teste. Opções a avaliar: `rd.md=0`, `rd.lvm=0`, `lvm.conf` com `event_activation=0`/`auto_activation_volume_list = []`, `/etc/mdadm.conf` com `AUTO -all`. |
-| Ativação de swap encontrada nos discos | Void runit `core-services` (fstab/swap) | [INF] O fstab live não deve listar swap. [DESC] Confirmar. |
-| Replay do journal ao montar `ro` | Comportamento do kernel ext4/XFS | Usar `-o ro,noload` (ext4) / `ro,norecovery` (XFS); para trabalho forense, `blockdev --setro` antes de montar. |
-| Pedido de rede automático (wttr.in) | Utumno `Weather.qml` | [VER] Não se desliga por configuração; alterar o Utumno está fora do âmbito. Decisão do utilizador. |
-| Calamares a abrir automaticamente | `.auto.sh` | Não aplicável se o Calamares não for incluído e o `.auto.sh` não for copiado. |
-| Label `VOID_LIVE` fixa | `mklive.sh` | [INF] Conflito se outra pen Void live estiver ligada. Menor. |
+| Automounting of target disks | `udiskie -a` in pwm's startup (in the package) and in the wasp skel; polkit rule `50-udisks.rules` grants mount/unlock without authentication to group `storage`; `adduser.sh` grants everything to `wheel` | [OBS] **Blocking**: the D77orphaned overlay must not autostart udiskie/gvfs/udisks2. |
+| `sshd` enabled with a known password (`anon:voidlinux`) | `mkd77.sh` (`SERVICES="sshd …"`) + `adduser.sh` | [OBS] On a compromised network this is an open door. [PROP] Do not enable sshd by default in the PoC. |
+| Automatic RAID/LVM assembly **after** the initramfs | `mdadm`/`lvm2` udev rules in the real system; `rd.md=0 rd.dm=0` only cover the initramfs | [UNK] Test in a VM with test RAID/LVM. Options to evaluate: `rd.md=0`, `rd.lvm=0`, `lvm.conf` with `event_activation=0`/`auto_activation_volume_list = []`, `/etc/mdadm.conf` with `AUTO -all`. *(Tested in phase 5: see `TEST_REPORT.md`, T8.)* |
+| Activation of swap found on disks | Void runit `core-services` (fstab/swap) | [INF] The live fstab must not list swap. [UNK] To confirm. |
+| Journal replay when mounting `ro` | ext4/XFS kernel behaviour | Use `-o ro,noload` (ext4) / `ro,norecovery` (XFS); for forensic work, `blockdev --setro` before mounting. |
+| Automatic network request (wttr.in) | Utumno `Weather.qml` | [VER] Cannot be turned off by configuration; changing Utumno is out of scope. User decision. |
+| Calamares opening automatically | `.auto.sh` | Not applicable if Calamares is not included and `.auto.sh` is not copied. |
+| Fixed `VOID_LIVE` label | `mklive.sh` | [INF] Conflict if another Void live stick is plugged in. Minor. |
 
-## 6. Estimativa de footprint (instalado, não comprimido)
+## 6. Footprint estimate (installed, uncompressed)
 
-[VER] Fecho de dependências calculado a partir de `run_depends` dos índices x86_64 (o método não segue `shlib-requires` nem pacotes virtuais complexos; usar como **estimativa**):
+[VER] Dependency closure computed from the `run_depends` of the x86_64 indexes (the method does not follow `shlib-requires` or complex virtual packages; treat as an **estimate**):
 
-| Conjunto | Pacotes | Instalado |
+| Set | Packages | Installed |
 |---|---|---|
-| `base-system` (inclui kernel 6.18 e linux-firmware) | 136 | 1118 MiB |
-| Core consola proposto (inventário §core) | 249 | 1465 MiB |
-| + opcionais | 299 | 1805 MiB |
+| `base-system` (includes kernel 6.18 and linux-firmware) | 136 | 1118 MiB |
+| Proposed console core (inventory §core) | 249 | 1465 MiB |
+| + optional | 299 | 1805 MiB |
 | Core + pwm | 373 | 2090 MiB |
 | Core + pwm + wasp/Utumno | 479 | 2371 MiB |
-| Tudo (core + opcionais + pwm + wasp) | 512 | 2660 MiB |
+| Everything (core + optional + pwm + wasp) | 512 | 2660 MiB |
 
-[INF] Com squashfs xz, a ISO deve ficar entre **≈0,9 e 1,2 GiB**. Não foi medida. O maior consumidor é `linux-firmware-network` (442 MiB), essencial para Wi-Fi.
+[INF] With xz squashfs, the ISO should be around **≈0.9–1.2 GiB**. Not measured. The largest consumer is `linux-firmware-network` (442 MiB), essential for Wi-Fi. *(Measured in phase 5: 1.6 GiB.)*
 
-## 7. Ports novos
+## 7. New ports
 
-[VER] **Indispensáveis: 0.** Todas as capacidades centrais existem no Void oficial ou nonfree (nmap) para glibc e musl. As ferramentas gráficas d77 existem no repositório d77void para glibc. Ausentes sem necessidade de port: `dc3dd` (alternativa `dcfldd`), `bulk_extractor` (adiar), `tshark` como pacote próprio (`wireshark` é o pacote CLI; `wireshark-qt` é a GUI).
+[VER] **Essential: 0.** All core capabilities exist in official Void or nonfree (nmap) for glibc and musl. The d77 graphical tools exist in the d77void repository for glibc. Missing without needing a port: `dc3dd` (alternative `dcfldd`), `bulk_extractor` (defer), `tshark` as a separate package (`wireshark` is the CLI package; `wireshark-qt` is the GUI).
 
-## 8. Desconhecidos que exigem teste
+## 8. Unknowns that require testing
 
-1. Arranque BIOS/UEFI da ISO resultante em VM e hardware (incluindo o T480s com Libreboot).
-2. Utumno no wasp: widgets, IPC, comportamento sem Ollama.
-3. Se o pwm aceita `startup_script` no ficheiro do utilizador como a documentação sugere.
-4. Automontagem por udev de MD/LVM no sistema live.
-5. Sessão gráfica a partir da TTY sem display manager (`startx`/`wasp-session`), se se decidir não incluir SDDM/greetd.
-6. Fluxo de escrita da pen que preserve uma partição de dados (o `mklive.sh` gera uma ISO híbrida com partição EFI anexada; acrescentar uma partição depois de um `dd` é possível em teoria, mas não foi testado).
+1. BIOS/UEFI boot of the resulting ISO in a VM and on hardware (including the T480s with Libreboot).
+2. Utumno on wasp: widgets, IPC, behaviour without Ollama.
+3. Whether pwm accepts `startup_script` in the user's file as the documentation suggests.
+4. udev automounting of MD/LVM in the live system.
+5. Graphical session from a TTY without a display manager (`startx`/`wasp-session`), if SDDM/greetd were left out.
+6. A stick-writing workflow that preserves a data partition (`mklive.sh` produces a hybrid ISO with an appended EFI partition; adding a partition after a `dd` is possible in theory but untested).
 
-## Reprodução num host Void
+## Reproducing on a Void host
 
 ```sh
-xbps-query -R -p pkgver,installed_size <pacote>
-xbps-query -R -x <pacote>                      # dependências diretas
-xbps-install -n -R -r /tmp/dryroot <lista>      # fecho e tamanho, sem instalar
+xbps-query -R -p pkgver,installed_size <package>
+xbps-query -R -x <package>                      # direct dependencies
+xbps-install -n -R -r /tmp/dryroot <list>       # closure and size, without installing
 xbps-query --repository=https://sourceforge.net/projects/d77void/files/d77void-repo -Rs .
 ```
 
-## 9. Decisões do utilizador
+## 9. User decisions
 
-| # | Data | Questão | Decisão |
+| # | Date | Question | Decision |
 |---|---|---|---|
-| D1 | 2026-11-07 | Pedido automático do Utumno a `wttr.in` | **PoC:** bloquear no overlay do D77orphaned (`0.0.0.0 wttr.in` em `/etc/hosts`), sem tocar no Utumno; aceita-se ver «weather unavailable» na barra durante a PoC. **Se o projeto avançar além da PoC:** opção na própria Utumno (por exemplo `UTUMNO_WEATHER=0`, que esconde o widget **e** para o `Timer`), feita como alteração separada no repositório Utumno, com autorização própria e nova versão do pacote; o D77orphaned passa a exportar a variável e retira a entrada do `/etc/hosts`. |
-| D2 | 2026-11-07 | Arquitetura | **x86_64 glibc.** wasp e scenefx0.5 só existem em glibc; ports novos indispensáveis = 0. musl fora da PoC. |
-| D3 | 2026-11-07 | Estratégia de build | **Revisto pelo utilizador (2026-11-07):** o `d77orphaned` começa como **clone integral do d77void @ `c567d0cf`, com histórico e sem remote**, e é depois podado; `git diff c567d0cf` mostra tudo o que divergiu. Sem bash-it (sem submódulos nem dependências externas no build). Texto original: **Copiar para dentro do `d77orphaned`** `mklive.sh`, `lib.sh`, `dracut/`, `grub/`, `isolinux/` e `keys/` do d77void no commit `c567d0cf`. Manter `COPYING` (BSD-2, void-mklive) e registar a origem (repositório, commit, ficheiros, data) num ficheiro de proveniência. O original fica intocado. A cópia pode depois ser adaptada **localmente** (por exemplo `sshd` desligado, polkit menos permissivo em `adduser.sh`, label própria), com cada desvio documentado. |
-| D4 | 2026-11-07 | Login gráfico | **greetd com o greeter da quickshell-d77** (`common/quickshell-d77/greeter` no d77void; Daniel, MIT), copiado para o overlay do D77orphaned. Ver nota abaixo. |
+| D1 | 2026-11-07 | Utumno's automatic request to `wttr.in` | **PoC:** block it in the D77orphaned overlay (`0.0.0.0 wttr.in` in `/etc/hosts`), without touching Utumno; seeing "weather unavailable" in the bar is accepted during the PoC. **If the project goes beyond the PoC:** an option in Utumno itself (e.g. `UTUMNO_WEATHER=0`, which hides the widget **and** stops the `Timer`), made as a separate change in the Utumno repository, with its own authorization and a new package version; D77orphaned then exports the variable and drops the `/etc/hosts` entry. |
+| D2 | 2026-11-07 | Architecture | **x86_64 glibc.** wasp and scenefx0.5 exist only for glibc; new essential ports = 0. musl out of the PoC. |
+| D3 | 2026-11-07 | Build strategy | **Revised by the user (2026-11-07):** `d77orphaned` starts as a **full clone of d77void @ `c567d0cf`, with history**, and is then pruned; `git diff c567d0cf` shows everything that diverged. No bash-it (no submodules or external dependencies in the build). Original wording: **copy into `d77orphaned`** `mklive.sh`, `lib.sh`, `dracut/`, `grub/`, `isolinux/` and `keys/` from d77void at commit `c567d0cf`; keep `COPYING` (BSD-2, void-mklive) and record the origin; the original stays untouched; the copy may be adapted **locally** (e.g. sshd off, own label), with every deviation documented. |
+| D4 | 2026-11-07 | Graphical login | **greetd with the quickshell-d77 greeter** (`common/quickshell-d77/greeter` in d77void; Daniel, MIT), copied into the D77orphaned overlay. See the note below. |
+| D5 | 2026-11-07 | Live login | **Autologin** via greetd's `[initial_session]`, as `anon`. Only applies on greetd's first start. Leaving that session brings up the greeter (`default_session`), where the other session can be chosen. |
+| D6 | 2026-11-07 | Autologin session | **pwm (X11)**, as the most compatible with varied hardware. `initial_session` = `startx /usr/bin/env dbus-launch pwm` (the same the greeter uses for xsessions); wasp + Utumno available from the greeter after logging out. Requires `xinit`. [INF] Fits the `nomodeset` entry: X11 has fbdev/vesa via `xorg-video-drivers`. *(Phase 5: `nomodeset` currently fails, see `TEST_REPORT.md` T5.)* |
+| D7 | 2026-11-07 | Console-only boot | **Dedicated GRUB/isolinux entry** with a parameter (`d77.nogui`) that keeps greetd from starting; the TTYs are the only environment. Implemented as a pre-pivot hook in the copied `dracut/vmklive` (same pattern as `nomodeset.sh`): creates `etc/sv/greetd/down` in the new root. |
+| D8 | 2026-11-07 | Network at boot | **`dhcpcd` enabled by default** (network ready, Grml-style). |
+| D9 | 2026-11-07 | Clock | **`chronyd` enabled by default** (automatic NTP sync). |
+| D10 | 2026-11-07 | Phase 4 gate | **Approved** (`APPROVAL_GATE.md`): move to phase 5 — local repository, copied builder, manifest, overlay, build and VM tests. No publishing, no changes to other projects. dracut autoinstaller removed from the copied `mklive.sh`. |
+| D11 | 2026-11-07 | Remote repository | **Authorized by the user ahead of schedule.** The user created `d77void/d77orphaned` (empty) and the local history was pushed to it. |
+| D12 | 2026-11-07 | Kantele | **Added at the user's request** (settings GUI for pwm and wasp, incl. keyboard): +7 packages / ≈19 MiB. |
+| D13 | 2026-11-07 | Language | **All repository documentation in English**, for universality. |
 
-| D5 | 2026-11-07 | Login live | **Autologin** pelo `[initial_session]` do greetd, como `anon`. Só se aplica no primeiro arranque do greetd. Ao sair dessa sessão aparece o greeter (`default_session`), onde se escolhe a outra sessão. |
-| D6 | 2026-11-07 | Sessão de autologin | **pwm (X11)**, por ser a mais compatível com hardware variado. `initial_session` = `startx /usr/bin/env dbus-launch pwm` (o mesmo que o greeter usa para xsessions); wasp + Utumno ficam disponíveis no greeter depois de sair. Requer `xinit`. [INF] Combina com a entrada `nomodeset`: o X11 tem fbdev/vesa via `xorg-video-drivers`. |
-| D7 | 2026-11-07 | Arranque só com consola | **Entrada GRUB/isolinux própria** com um parâmetro (por exemplo `d77.nogui`) que impede o greetd de arrancar; as TTY ficam como único ambiente. [PROP] Implementar como hook pre-pivot no `dracut/vmklive` copiado (o mesmo padrão de `nomodeset.sh`): remover `etc/runit/runsvdir/default/greetd` no novo root quando o parâmetro existe. Alternativa: verificar `/proc/cmdline` no `run` do serviço. Decidir na implementação. |
-| D8 | 2026-11-07 | Rede ao arrancar | **`dhcpcd` ativo por defeito** (rede pronta ao estilo Grml). |
-| D9 | 2026-11-07 | Relógio | **`chronyd` ativo por defeito** (sincronização automática por NTP). |
-| D10 | 2026-11-07 | Gate da fase 4 | **Aprovado** (`APPROVAL_GATE.md`): avançar para a fase 5 — repositório local, builder copiado, manifesto, overlay, build e testes em VM. Sem remoto, sem publicação, sem alterações a outros projetos. Autoinstaller do dracut removido da cópia do `mklive.sh`. |
-
-**Nota D4 — o que o greeter implica** [OBS/VER]:
-- Arranque: greetd → `/etc/greetd/greet-dwl.sh` → `dwl -s "qs -p <greeter>"`, como utilizador `_greeter`, no VT 7. As TTY 1–6 continuam livres para a consola.
-- Pacotes: `greetd` (Void), `dwl` 0.9_1 (**d77void**, só glibc, depende de wlroots0.20), `quickshell` (Void), `xinit` (para as sessões X11). Fecho de `greetd dwl quickshell xinit`: 161 pacotes / ≈298 MiB além do `base-system`, em grande parte partilhados com o conjunto wasp/Utumno.
-- Sessões: o greeter lê `/usr/share/wayland-sessions` e `/usr/share/xsessions`. Mostra **wasp** (`wasp-session`) e **pwm** (`dbus-launch pwm`, lançado como `startx /usr/bin/env dbus-launch pwm`). Lista também qualquer outra sessão instalada; a PoC só deve instalar estas duas.
-- [OBS] No d77void, o greetd só é usado nas variantes Wayland (`include_greetd`); as X11, incluindo a `pwm`, usam SDDM. [Utilizador, 2026-11-07] Uso diário do greeter com sessões X11 no portátil: funciona bem. → O suporte X11 está confirmado em uso real. **[DESC]** A combinação greetd + pwm ainda não foi exercitada em nenhuma ISO live; fica no plano de testes.
-- A autenticação passa pelo PAM do greetd. O utilizador live (`anon`) tem a palavra-passe `voidlinux`, definida pelo `adduser.sh`.
-- **[DESC]** Falta testar o greeter dentro do overlay live (permissões de `_greeter`, grupo `video`, seat via elogind).
+**Note on D4 — what the greeter implies** [OBS/VER]:
+- Startup: greetd → `/etc/greetd/greet-dwl.sh` → `dwl -s "qs -p <greeter>"`, as user `_greeter`, on VT 7. TTYs 1–6 stay free for the console.
+- Packages: `greetd` (Void), `dwl` 0.9_1 (**d77void**, glibc only, depends on wlroots0.20), `quickshell` (Void), `xinit` (for X11 sessions). Closure of `greetd dwl quickshell xinit`: 161 packages / ≈298 MiB beyond `base-system`, largely shared with the wasp/Utumno set.
+- Sessions: the greeter reads `/usr/share/wayland-sessions` and `/usr/share/xsessions`. It shows **wasp** (`wasp-session`) and **pwm** (`dbus-launch pwm`, launched as `startx /usr/bin/env dbus-launch pwm`), and skips `dwl.desktop` (the greeter's own compositor).
+- [OBS] In d77void, greetd is only used by the Wayland variants (`include_greetd`); the X11 ones, including `pwm`, use SDDM. [User, 2026-11-07] Daily use of the greeter with X11 sessions on the laptop: works well. → X11 support confirmed in real use. *(Phase 5: greetd + pwm autologin works in the live ISO, see T6.)*
+- Authentication goes through greetd's PAM. The live user (`anon`) has the password `voidlinux`, set by `adduser.sh`.

@@ -1,78 +1,78 @@
-# Plano de investigação — bloqueio antes de construir
+# Research plan — gate before building
 
-## Fase 0 — Reconhecimento (somente leitura)
+## Phase 0 — Reconnaissance (read-only)
 
-- **Primeira pergunta:** x86_64 glibc ou musl. Determina se pwm, wasp e Utumno existem já compilados no repositório d77void para essa variante (resultado da fase 0: wasp e scenefx0.5 só existem em glibc — ver `BASELINE_AUDIT.md` §2).
-- Identificar distribuição, arquitetura(s) alvo, versão Void, init e método live pretendido.
-- Inspecionar repositório d77void e localizar `mkd77.sh` real. Determinar se é gerador de ISO, wrapper de `void-mklive`, script de remaster ou outra coisa. **Não assumir**.
-- Levantar origem, licenças, dependências e estado de builds de pwm, wasp, Utumno, qsd77 e demais componentes já empacotados.
-- Verificar funcionamento do `void-mklive` ou mecanismo existente na versão pretendida, incluindo boot BIOS/UEFI e opções de instalação/boot da pen.
-- Identificar como os repositórios binários d77void são configurados, prioridades, assinatura/chaves e compatibilidade. Não incorporar chaves privadas.
+- **First question:** x86_64 glibc or musl. It determines whether pwm, wasp and Utumno already exist as binaries in the d77void repository for that variant (phase 0 result: wasp and scenefx0.5 exist only for glibc — see `BASELINE_AUDIT.md` §2).
+- Identify the distribution, target architecture(s), Void version, init system and intended live method.
+- Inspect the d77void repository and locate the real `mkd77.sh`. Determine whether it is an ISO generator, a `void-mklive` wrapper, a remaster script or something else. **Do not assume.**
+- Gather origin, licenses, dependencies and build status of pwm, wasp, Utumno, qsd77 and the other packaged components.
+- Check that `void-mklive` (or the existing mechanism) works in the intended version, including BIOS/UEFI boot and USB-stick install/boot options.
+- Identify how the d77void binary repositories are configured: priorities, signing/keys and compatibility. Never embed private keys.
 
-**Saída:** `docs/BASELINE_AUDIT.md` com factos, referências, pontos desconhecidos e riscos. Se os repositórios não estiverem disponíveis, solicitar caminhos/URLs em vez de inventar.
+**Output:** `docs/BASELINE_AUDIT.md` with facts, references, unknowns and risks. If the repositories are not available, ask for paths/URLs instead of inventing.
 
-## Fase 1 — Matriz de capacidades (sem instalar)
+## Phase 1 — Capability matrix (no installing)
 
-Pesquisar por **capacidade**, não por popularidade:
+Research by **capability**, not popularity:
 
-1. Discos: SMART/NVMe, identificação, tabela de partições, clonagem e recuperação de ficheiros.
-2. Filesystems e volumes: ext4, XFS, Btrfs, FAT/exFAT, NTFS, LUKS, LVM, RAID; ZFS **somente se viável**, com análise especial do kernel/módulos.
-3. Boot: EFI, GRUB, chroot, initramfs, identificação de bootloaders e recuperação controlada.
-4. Rede: ligação com e sem fios, DNS, SSH, transferência segura, captura e diagnóstico.
-5. Forense: imagem de disco, hashing, metadados, timeline/análise **se justificadas**, preservação e registo.
-6. Segurança/pentesting limitado: descoberta e auditoria de rede, captura/análise de tráfego e verificação de serviços em sistemas próprios/autorizados.
-7. Operação: terminal, editor, pager, man pages, firmware e drivers necessários, logs, compressão, ferramentas USB.
-8. Gráficos: dependências mínimas para pwm/X11 e wasp/Wayland+Utumno, terminal e launcher existentes.
+1. Disks: SMART/NVMe, identification, partition tables, cloning and file recovery.
+2. Filesystems and volumes: ext4, XFS, Btrfs, FAT/exFAT, NTFS, LUKS, LVM, RAID; ZFS **only if feasible**, with a dedicated kernel/module analysis.
+3. Boot: EFI, GRUB, chroot, initramfs, bootloader identification and controlled recovery.
+4. Network: wired and wireless connectivity, DNS, SSH, secure transfer, capture and diagnostics.
+5. Forensics: disk imaging, hashing, metadata, timeline/analysis **where justified**, preservation and logging.
+6. Limited security/pentesting: network discovery and auditing, traffic capture/analysis and service checks on own/authorized systems.
+7. Operations: terminal, editor, pager, man pages, required firmware and drivers, logs, compression, USB tools.
+8. Graphics: minimal dependencies for pwm/X11 and wasp/Wayland + Utumno, existing terminal and launcher.
 
-**Saída:** `docs/PACKAGE_INVENTORY.md` preenchido com evidência por candidato, incluindo alternativas e redundâncias.
+**Output:** `docs/PACKAGE_INVENTORY.md` filled in with evidence per candidate, including alternatives and redundancies.
 
-## Fase 2 — Verificação de cada pacote
+## Phase 2 — Per-package verification
 
-Para cada candidato:
+For each candidate:
 
-- Nome **exato** em XBPS ou no repo d77void; arquitetura e variante libc.
-- Origem e comando de verificação (`xbps-query`, `xbps-install -n` quando aplicável, consulta do índice de repositório, template Void etc.).
-- Dependências, tamanho instalado e impacto estimado na ISO (distinguir estimativa de medição).
-- Presença de binário, compatibilidade de runtime e teste funcional em VM/ambiente descartável quando possível.
-- Restrições: permissões, kernel, módulos, firmware, rede, GUI, privilégios, licenças.
-- Estado: `NÃO PESQUISADO`, `ENCONTRADO`, `TESTADO`, `INCOMPATÍVEL`, `A PORTAR`, `ADIADO`, `REJEITADO`.
+- **Exact** name in XBPS or in the d77void repository; architecture and libc variant.
+- Origin and verification command (`xbps-query`, `xbps-install -n` where applicable, repository index lookup, Void template, etc.).
+- Dependencies, installed size and estimated ISO impact (distinguish estimates from measurements).
+- Binary presence, runtime compatibility and a functional test in a VM/disposable environment where possible.
+- Constraints: permissions, kernel, modules, firmware, network, GUI, privileges, licenses.
+- Status: `NOT RESEARCHED`, `FOUND`, `TESTED`, `INCOMPATIBLE`, `TO PORT`, `DEFERRED`, `REJECTED`.
 
-**Importante:** pacote listado num índice ≠ pacote instalado ≠ ferramenta funcional em live.
+**Important:** listed in an index ≠ installed ≠ a working tool in the live system.
 
-## Fase 3 — Triagem e viabilidade
+## Phase 3 — Triage and feasibility
 
-Construir três listas:
+Build three lists:
 
-- **Core PoC**: indispensável, disponível e testável com baixo risco.
-- **Optional/phase 2**: útil mas não necessário para demonstrar valor.
-- **Out**: redundante, pesado, arriscado, não mantível ou sem benefício claro.
+- **Core PoC**: essential, available and testable with low risk.
+- **Optional/phase 2**: useful but not needed to demonstrate value.
+- **Out**: redundant, heavy, risky, unmaintainable or without clear benefit.
 
-Estimar o número de ports próprios novos. Para cada port proposto, justificar por que não existe alternativa suficiente e estimar manutenção de versões/dependências. Se o total chegar a **5**, parar e rever o escopo com o utilizador; se se aproximar de **30**, a conceção é inviável — nada de «portar tudo».
+Estimate the number of new ports of our own. For each proposed port, justify why no sufficient alternative exists and estimate the version/dependency maintenance. If the total reaches **5**, stop and review the scope with the user; if it approaches **30**, the design is infeasible — no "port everything".
 
-## Fase 4 — Gate de aprovação
+## Phase 4 — Approval gate
 
-Apresentar ao utilizador:
+Present to the user:
 
-- Lista final mínima, ferramentas opcionais e exclusões.
-- Disponibilidade real e evidência de funcionamento.
-- Ports necessários e esforço previsto.
-- Reutilização exata do d77void e mudanças que **não** serão feitas.
-- Plano de testes e riscos conhecidos.
-- Perguntas pendentes (por exemplo, x86_64 glibc vs musl, método de escrita da pen, tamanho de ISO, firmware, persistência).
+- Final minimal list, optional tools and exclusions.
+- Actual availability and evidence that things work.
+- Required ports and expected effort.
+- Exactly what is reused from d77void and the changes that will **not** be made.
+- Test plan and known risks.
+- Open questions (for example x86_64 glibc vs musl, USB-stick writing method, ISO size, firmware, persistence).
 
-**Não passar à implementação sem aprovação explícita.**
+**Do not move to implementation without explicit approval.**
 
-## Fase 5 — Implementação futura (não autorizada por este documento)
+## Phase 5 — Future implementation (not authorized by this document)
 
-Somente depois do gate: protótipo console-first; boot em VM e hardware; depois sessões gráficas; depois partição de dados opcional. Sem `forensics.qml` na PoC.
+Only after the gate: console-first prototype; boot in a VM and on hardware; then graphical sessions; then the optional data partition. No `forensics.qml` in the PoC.
 
-## Verificações funcionais mínimas futuras
+## Minimal future functional checks
 
-- Boot UEFI e BIOS em condições suportadas; fallback TTY sem GUI.
-- Rede e armazenamento identificados; ferramentas centrais executam sem bibliotecas em falta.
-- pwm em X11; wasp + Utumno em Wayland, sem tentar Utumno no X11.
-- Disco alvo não montado em escrita automaticamente; comandos destrutivos não executados por arranque.
-- Com discos de teste com RAID MD, LVM, LUKS, swap e journal ext4/XFS por fechar: nada é assemblado, ativado, desbloqueado, montado nem tem o journal reproduzido sem ação explícita.
-- Live funciona sem partição de dados; LUKS2 opcional desbloqueável apenas por ação do utilizador.
-- Repetir testes com pen de dados ausente, bloqueada, danificada e com UUID divergente.
-- Regressão: repo d77void, scripts e pacotes partilhados mantêm comportamento original.
+- UEFI and BIOS boot under supported conditions; TTY fallback without GUI.
+- Network and storage detected; core tools run without missing libraries.
+- pwm on X11; wasp + Utumno on Wayland, without trying Utumno on X11.
+- Target disk not mounted read-write automatically; no destructive commands run at boot.
+- With test disks holding MD RAID, LVM, LUKS, swap and unclean ext4/XFS journals: nothing is assembled, activated, unlocked, mounted or journal-replayed without explicit action.
+- Live system works without a data partition; optional LUKS2 unlockable only by user action.
+- Repeat tests with the data stick absent, locked, damaged and with a mismatching UUID.
+- Regression: the d77void repo, scripts and shared packages keep their original behaviour.

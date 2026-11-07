@@ -1,144 +1,146 @@
-# APPROVAL_GATE — Fase 4: gate de aprovação da PoC
+# APPROVAL_GATE — Phase 4: PoC approval gate
 
-- **Data:** 2026-11-07
-- **Base:** `BASELINE_AUDIT.md` (decisões D1–D7) e `PACKAGE_INVENTORY.md`.
-- **Estado:** **APROVADO em 2026-11-07** (D10); P1 = `dhcpcd` ativo, P2 = `chronyd` ativo. **Nada foi construído nem testado.** Todos os pacotes foram *encontrados nos índices* (x86_64 glibc, 2026-11-07); nenhum foi instalado.
+- **Date:** 2026-11-07
+- **Based on:** `BASELINE_AUDIT.md` (decisions D1–D7) and `PACKAGE_INVENTORY.md`.
+- **Status:** **APPROVED on 2026-11-07** (D10); P1 = `dhcpcd` enabled, P2 = `chronyd` enabled. At approval time nothing had been built or tested; all packages had been *found in the indexes* (x86_64 glibc, 2026-11-07). Phase 5 results: `TEST_REPORT.md`.
 
-Ao aprovar este documento autorizas a **fase 5 — protótipo**: criar o repositório local `d77orphaned`, copiar o builder, escrever o manifesto e o overlay, construir a ISO num host Void e testá-la em VM. Isso **não** inclui criar ou publicar o repositório remoto, publicar pacotes, nem alterar o d77void, a Utumno ou qualquer outro projeto.
+Approving this document authorizes **phase 5 — prototype**: create the local `d77orphaned` repository, copy the builder, write the manifest and overlay, build the ISO on a Void host and test it in a VM. It does **not** include creating or publishing the remote repository, publishing packages, or changing d77void, Utumno or any other project. *(The remote was later authorized separately — D11.)*
+
+Notes in *italics* record how phase 5 actually implemented or changed an item.
 
 ---
 
-## 1. Resumo
+## 1. Summary
 
 | | |
 |---|---|
-| Arquitetura | x86_64 glibc (D2) |
-| Builder | cópia própria do `mklive.sh` e dos ficheiros de que depende (D3) |
-| Login | greetd + greeter da quickshell-d77, com autologin no pwm (D4–D6) |
-| Arranque só consola | entrada própria com `d77.nogui` (D7) |
-| Ports novos | **0** |
-| Pacotes no fecho da PoC | 456: Void 446, nonfree 1 (`nmap`), d77void 9 |
-| Tamanho instalado (estimativa) | ≈ 2,2 GiB → ISO ≈ 0,9–1,1 GiB (**não medido**) |
-| Pacotes indesejados no fecho | nenhum: verificado que `udisks2`, `udiskie`, `gvfs`, `NetworkManager`, `ollama`, `calamares`, `pipewire`, `sddm` e `pulseaudio` **não** entram |
+| Architecture | x86_64 glibc (D2) |
+| Builder | own copy of `mklive.sh` and the files it depends on (D3) *(implemented as a full clone of d77void, then pruned)* |
+| Login | greetd + quickshell-d77 greeter, with autologin into pwm (D4–D6) |
+| Console-only boot | dedicated entry with `d77.nogui` (D7) |
+| New ports | **0** |
+| Packages in the PoC closure | 456: Void 446, nonfree 1 (`nmap`), d77void 9 *(measured: 450 installed)* |
+| Installed size (estimate) | ≈ 2.2 GiB → ISO ≈ 0.9–1.1 GiB (**not measured**) *(measured: ISO 1.6 GiB)* |
+| Unwanted packages in the closure | none: verified that `udisks2`, `udiskie`, `gvfs`, `NetworkManager`, `ollama`, `calamares`, `pipewire`, `sddm` and `pulseaudio` do **not** get in |
 
-## 2. Manifesto proposto
+## 2. Proposed manifest
 
-### 2.1 Incluído automaticamente pelo `mklive.sh` (não listar)
-`base-system` (kernel 6.18, linux-firmware), `syslinux`, `grub-i386-efi`, `grub-x86_64-efi`, `memtest86+` e os pacotes do initramfs (`dracut-network`, `device-mapper`…).
+### 2.1 Included automatically by `mklive.sh` (not listed)
+`base-system` (kernel 6.18, linux-firmware), `syslinux`, `grub-i386-efi`, `grub-x86_64-efi`, `memtest86+` and the initramfs packages (`dracut-network`, `device-mapper`…).
 
-### 2.2 Core — consola (66, todos Void exceto `nmap`)
+### 2.2 Core — console (66, all Void except `nmap`)
 
-| Grupo | Pacotes |
+| Group | Packages |
 |---|---|
-| Discos e hardware de armazenamento | `util-linux` `parted` `gptfdisk` `smartmontools` `nvme-cli` `hdparm` `sdparm` `sg3_utils` `lsscsi` |
-| Recuperação e clonagem | `ddrescue` `testdisk` `partclone` `fsarchiver` |
+| Disks and storage hardware | `util-linux` `parted` `gptfdisk` `smartmontools` `nvme-cli` `hdparm` `sdparm` `sg3_utils` `lsscsi` |
+| Recovery and cloning | `ddrescue` `testdisk` `partclone` `fsarchiver` |
 | Filesystems | `e2fsprogs` `xfsprogs` `btrfs-progs` `dosfstools` `exfatprogs` `ntfs-3g` `f2fs-tools` `mtools` |
-| Volumes e encriptação | `cryptsetup` `lvm2` `mdadm` (com autoativação desligada, §4) |
+| Volumes and encryption | `cryptsetup` `lvm2` `mdadm` (with auto-activation disabled, §4) |
 | Boot / EFI | `efibootmgr` `efivar` `os-prober` |
-| Rede | `iproute2` `iputils` `dhcpcd` `wpa_supplicant` `openssh` `curl` `rsync` |
-| Diagnóstico de rede | `tcpdump` `nmap`* `traceroute` `mtr` `ldns` `openbsd-netcat` `socat` `arp-scan` |
-| Forense | `dcfldd` `libewf` `sleuthkit` `foremost` |
-| Hardware e sistema | `dmidecode` `pciutils` `usbutils` `hwinfo` `chntpw` `f3` `lynis` |
-| Operação | `tmux` `vim` `less` `man-db` `lsof` `strace` `pv` `zstd` `p7zip` `squashfs-tools` `dialog` `chrony` `xtools-minimal` |
+| Network | `iproute2` `iputils` `dhcpcd` `wpa_supplicant` `openssh` `curl` `rsync` |
+| Network diagnostics | `tcpdump` `nmap`* `traceroute` `mtr` `ldns` `openbsd-netcat` `socat` `arp-scan` |
+| Forensics | `dcfldd` `libewf` `sleuthkit` `foremost` |
+| Hardware and system | `dmidecode` `pciutils` `usbutils` `hwinfo` `chntpw` `f3` `lynis` *(+ `acpid`)* |
+| Operations | `tmux` `vim` `less` `man-db` `lsof` `strace` `pv` `zstd` `p7zip` `squashfs-tools` `dialog` `chrony` `xtools-minimal` |
 
-\* O `nmap` vem do repositório **nonfree** (licença NPSL). O build tem de acrescentar `-r https://repo-default.voidlinux.org/current/nonfree`, porque o `mklive.sh` não inclui o nonfree por defeito. A redistribuição numa ISO gratuita é permitida pela NPSL; a licença será revista antes de qualquer publicação.
+\* `nmap` comes from the **nonfree** repository (NPSL license). The build must add `-r https://repo-default.voidlinux.org/current/nonfree`, because `mklive.sh` does not include nonfree by default. NPSL allows redistribution in a free ISO; the license will be reviewed before any publication.
 
-### 2.3 Gráfico X11 — pwm (16)
-`xorg-minimal` `xorg-input-drivers` `xorg-video-drivers` `xinit` `setxkbmap` `xauth` `dejavu-fonts-ttf` `terminus-font` `font-misc-misc` `pwm`† `d77-st`† `dmenu` `sxhkd` `dbus` `elogind` `polkit`
+### 2.3 X11 graphics — pwm (16)
+`xorg-minimal` `xorg-input-drivers` `xorg-video-drivers` `xinit` `setxkbmap` `xauth` `dejavu-fonts-ttf` `terminus-font` `font-misc-misc` `pwm`† `d77-st`† `dmenu` `sxhkd` `dbus` `elogind` `polkit` *(implemented: `sxhkd` dropped — no sxhkdrc in the overlay; `dbus-x11` added for `dbus-launch`; `xmodmap` added — pwm needs it, see `TEST_REPORT.md`)*
 
-### 2.4 Gráfico Wayland — wasp + Utumno (10)
+### 2.4 Wayland graphics — wasp + Utumno (10)
 `mesa-dri` `wasp`† `utumno`† `qsd77`† `quickshell` `matugen` `wmenu` `alacritty` `dunst` `awww`
 
 ### 2.5 Login (2 + overlay)
-`greetd` `dwl`† e o greeter copiado de `d77void/common/quickshell-d77/greeter` (§3).
+`greetd` `dwl`† and the greeter copied from `d77void/common/quickshell-d77/greeter` (§3).
 
-† Pacotes do repositório d77void (assinatura verificada, `keys/2b:d7:…`). No fecho entram ainda `d77-st-terminfo`, `font-JetBrainsMono` e `scenefx0.5`, também do d77void.
+† Packages from the d77void repository (signature verified, `keys/2b:d7:…`). The closure also pulls `d77-st-terminfo`, `font-JetBrainsMono` and `scenefx0.5`, also from d77void.
 
-### 2.5b Ferramentas d77 (acrescentado a pedido do utilizador, 2026-11-07)
-`kantele`† (GUI de definições do pwm e do wasp): +7 pacotes / ≈19 MiB sobre o resto do manifesto (Qt6/Python já presentes).
+### 2.5b d77 tools (added at the user's request, 2026-11-07)
+`kantele`† (settings GUI for pwm and wasp): +7 packages / ≈19 MiB on top of the rest of the manifest (Qt6/Python already present).
 
-### 2.6 Serviços runit
-| Serviço | Estado | Nota |
+### 2.6 runit services
+| Service | State | Note |
 |---|---|---|
-| `dbus` `elogind` `polkitd` `acpid` | ativo | necessários às sessões gráficas e ao ACPI |
-| `greetd` | ativo, exceto com `d77.nogui` | D5–D7 |
-| `dhcpcd` | ativo | D8 |
-| `chronyd` | ativo | D9 |
-| `sshd` | **desligado** | instalado; arranque manual com `sv up sshd` depois de mudar a palavra-passe |
-| `wpa_supplicant` | desligado | usado manualmente ou via dhcpcd |
+| `dbus` `elogind` `polkitd` `acpid` | enabled | needed by the graphical sessions and ACPI *(elogind is D-Bus activated, not a runit service)* |
+| `greetd` | enabled, except with `d77.nogui` | D5–D7 |
+| `dhcpcd` | enabled | D8 |
+| `chronyd` | enabled | D9 |
+| `sshd` | **disabled** | installed; start manually with `sv up sshd` after changing the password |
+| `wpa_supplicant` | disabled | used manually or via dhcpcd |
 
-## 3. Opcional — fase 2 (não entra na PoC)
-`exiftool`, `wireshark` (CLI tshark), `termshark`, `afflib`, `yara`, `binwalk`, `nikto`, `sqlmap`, `john`, `thc-hydra`, `testssl.sh`, `ssh-audit`, `fuse-sshfs`, `nfs-utils`, `cifs-utils`, `wireguard-tools`, `iperf3`, `rkhunter`, `chkrootkit`, `lshw`, acessibilidade na consola (`espeakup`, `brltty`, `void-live-audio`). Com todos estes a imagem passaria para ≈ 2,6 GiB instalado.
+## 3. Optional — phase 2 (not in the PoC)
+`exiftool`, `wireshark` (tshark CLI), `termshark`, `afflib`, `yara`, `binwalk`, `nikto`, `sqlmap`, `john`, `thc-hydra`, `testssl.sh`, `ssh-audit`, `fuse-sshfs`, `nfs-utils`, `cifs-utils`, `wireguard-tools`, `iperf3`, `rkhunter`, `chkrootkit`, `lshw`, console accessibility (`espeakup`, `brltty`, `void-live-audio`). With all of these the image would grow to ≈ 2.6 GiB installed.
 
-## 4. Fora (Out)
-| Pacote | Razão |
+## 4. Out
+| Package | Reason |
 |---|---|
-| `zfs` | DKMS + compilador, +559 MiB |
-| `hashcat` | sem GPU no live; o `john` cobre a função |
+| `zfs` | DKMS + compiler, +559 MiB |
+| `hashcat` | no GPU in the live system; `john` covers the function |
 | `wireshark-qt` | +649 MiB |
-| `nwipe` | destrutivo por natureza |
-| `udiskie` `udisks2` `gvfs` | montagem automática, incompatível com a política de integridade |
-| `NetworkManager` | +61 MiB; dhcpcd/wpa_supplicant chegam |
-| `d77run` | GTK4, +369 MiB; `dmenu`/`wmenu`/launcher da Utumno chegam |
-| `ollama`, `calamares`, `sddm`, `plymouth`, `pipewire` | sem função na PoC |
-| `orca` | +373 MiB; a acessibilidade gráfica fica para depois |
-| `bulk_extractor`, `dc3dd` | inexistentes no Void; não se portam |
+| `nwipe` | destructive by nature |
+| `udiskie` `udisks2` `gvfs` | automounting, incompatible with the integrity policy |
+| `NetworkManager` | +61 MiB; dhcpcd/wpa_supplicant are enough |
+| `d77run` | GTK4, +369 MiB; `dmenu`/`wmenu`/Utumno's launcher are enough |
+| `ollama`, `calamares`, `sddm`, `plymouth`, `pipewire` | no role in the PoC |
+| `orca` | +373 MiB; graphical accessibility deferred |
+| `bulk_extractor`, `dc3dd` | not in Void; not porting |
 
-## 5. O que se reutiliza do d77void e como
+## 5. What is reused from d77void and how
 
-| Origem (commit `c567d0cf`) | Como | Alterações locais previstas no `d77orphaned` |
+| Origin (commit `c567d0cf`) | How | Planned local changes in `d77orphaned` |
 |---|---|---|
-| `mklive.sh`, `lib.sh`, `version` | **cópia** + `COPYING` (BSD-2) + ficheiro de proveniência | label própria (ex.: `D77ORPHANED`) em vez de `VOID_LIVE`; remoção do autoinstaller (linha abaixo) |
-| `dracut/vmklive/` | cópia | `adduser.sh`: sem `sshd` ativo; hook novo `nogui.sh` (D7); polkit mantido (o live user já tem `sudo` sem palavra-passe; o risco real era a montagem automática, que fica sem ferramentas) |
-| `dracut/autoinstaller/` | **não copiar** | o `mklive.sh` refere-o em 3 sítios (`copy_autoinstaller_files`, `--force-add`, `rm -r`) → remover essas referências na cópia. Só ativa com `root=vai`, mas é um instalador **destrutivo** dentro do initramfs; não deve existir numa ISO forense |
-| `dracut/netmenu/` | não copiar | o `mklive.sh` não o usa |
-| `grub/`, `isolinux/` | cópia | título `D77orphaned`; entrada «consola (sem gráficos)» com `d77.nogui`; entradas de voz removidas (fase 2); `rd.lvm=0` acrescentado à cmdline |
-| `keys/` (3 chaves públicas) | cópia | — |
-| `data/splash.png` | cópia ou splash próprio | branding próprio quando existir |
-| `common/quickshell-d77/greeter/` | cópia para o overlay `/etc/greetd/…` | `config.toml` com `[initial_session]` (pwm) |
-| Repositório binário d77void | `-r` no build | — |
+| `mklive.sh`, `lib.sh`, `version` | **copy** + `COPYING` (BSD-2) + provenance record | own label (`D77ORPHANED`) instead of `VOID_LIVE`; autoinstaller removed (row below) *(also: EFI image write checked, with mtools fallback)* |
+| `dracut/vmklive/` | copy | `adduser.sh`: no `sshd` enabled; new `nogui.sh` hook (D7); polkit kept (the live user already has passwordless `sudo`; the real risk was automounting, which loses its tools) |
+| `dracut/autoinstaller/` | **do not copy** | `mklive.sh` references it in 3 places (`copy_autoinstaller_files`, `--force-add`, `rm -r`) → remove those references in the copy. It only triggers with `root=vai`, but it is a **destructive** installer inside the initramfs; it must not exist in a forensic ISO |
+| `dracut/netmenu/` | do not copy | not used by `mklive.sh` |
+| `grub/`, `isolinux/` | copy | title `D77orphaned`; "console only" entry with `d77.nogui`; speech entries removed (phase 2); `rd.lvm=0` added to the cmdline |
+| `keys/` (3 public keys) | copy | — |
+| `data/splash.png` | copy, or our own splash | own branding when it exists |
+| `common/quickshell-d77/greeter/` | copy into the overlay `/etc/greetd/…` | `config.toml` with `[initial_session]` (pwm) |
+| d77void binary repository | `-r` at build time | — |
 
-**O que não muda:** `mkd77.sh`, skels e `common/` do d77void, os pacotes pwm/wasp/Utumno/qsd77/dwl, o repositório binário e a Utumno. A meteorologia da Utumno é tratada por `/etc/hosts` no overlay (D1).
+**What does not change:** d77void's `mkd77.sh`, skels and `common/`, the pwm/wasp/Utumno/qsd77/dwl packages, the binary repository and Utumno. Utumno's weather is handled via `/etc/hosts` in the overlay (D1).
 
-### Overlay próprio (`includedir/`)
-- `/etc/hosts` com `0.0.0.0 wttr.in` (D1).
+### Own overlay (`includedir/`)
+- `/etc/hosts` with `0.0.0.0 wttr.in` (D1).
 - `/etc/greetd/config.toml` + greeter + `greet-dwl.sh` (D4–D6).
-- `/etc/skel/.config/pwm/config.toml` com `startup_script` próprio **sem `udiskie`** (pwm sem automontagem).
-- `/etc/skel/.config/wasp/config.lua` próprio: autostart sem `udiskie`, sem `pipewire` e sem `ollama`; mantém `qsd77 run -c utumno`, `dunst`, `awww`.
-- `/etc/lvm/lvm.conf` com `event_activation = 0` e `auto_activation_volume_list = []`; `/etc/mdadm.conf` com `AUTO -all` (a testar, §6).
-- `/etc/os-release` próprio (`ID_LIKE=void`).
-- **Não** levar `.auto.sh`, `d77-welcome`, `50-udisks.rules` nem as regras plymouth.
+- `/etc/skel/.config/pwm/config.toml` with its own `startup_script` **without `udiskie`** (pwm without automounting).
+- Own `/etc/skel/.config/wasp/config.lua`: autostart without `udiskie`, `pipewire` and `ollama`; keeps `qsd77 run -c utumno`, `dunst`, `awww`.
+- `/etc/lvm/lvm.conf` with `event_activation = 0` and `auto_activation_volume_list = []`; `/etc/mdadm.conf` with `AUTO -all` (to test, §6). *(Implemented: `lvm.conf` is edited by `postsetup.sh`; the udev rules `64-md-raid-assembly.rules` and `69-dm-lvm.rules` are also masked.)*
+- Own `/etc/os-release` (`ID_LIKE=void`).
+- Do **not** bring `.auto.sh`, `d77-welcome`, `50-udisks.rules` or the plymouth rules.
 
-## 6. Plano de testes
+## 6. Test plan
 
-**Onde:** construir num host Void. Os testes de integridade correm **só em VM com discos descartáveis**. O hardware real serve apenas para arranque, gráficos e rede: o T480s (Libreboot) e uma máquina com BIOS legado se houver. Nenhum teste destrutivo nas máquinas pessoais.
+**Where:** build on a Void host. Integrity tests run **only in a VM with disposable disks**. Real hardware is only for boot, graphics and network: the T480s (Libreboot) and a legacy-BIOS machine if available. No destructive tests on personal machines.
 
-| # | Teste | Ambiente | Critério de sucesso |
+| # | Test | Environment | Success criterion |
 |---|---|---|---|
-| T1 | Build reproduzível | host Void | ISO gerada; o log lista os pacotes do manifesto; nenhum pacote de §4 no rootfs (`xbps-query -r`) |
-| T2 | Arranque BIOS | QEMU SeaBIOS | menu isolinux; arranque até à TTY e ao greetd |
-| T3 | Arranque UEFI | QEMU OVMF | menu GRUB; idem |
-| T4 | `d77.nogui` | QEMU | greetd não arranca; TTY1 utilizável |
-| T5 | `nomodeset` + pwm | QEMU (VGA std) | o autologin pwm arranca com fbdev/vesa |
-| T6 | Autologin pwm → sair → greeter → wasp+Utumno | QEMU virtio-gpu | as duas sessões arrancam; a barra mostra «weather unavailable» com rede ativa (D1) |
-| T7 | Ferramentas core | QEMU | cada binário do §2.2 corre `--version`/`-h` sem bibliotecas em falta (script de verificação) |
-| T8 | Integridade: discos alvo | QEMU com discos de teste: ext4 com journal sujo, XFS, NTFS, LUKS2, RAID1 MD, LVM, swap | após o arranque e após login gráfico: nenhum `md*` assemblado, nenhum LV ativo, nenhum LUKS aberto, nada montado, swap inativa (`/proc/mdstat`, `lvs`, `lsblk`, `/proc/swaps`, `mount`); hashes SHA-256 dos discos iguais antes e depois |
-| T9 | Montagem segura | QEMU | `blockdev --setro` + `mount -o ro,noload` (ext4) / `ro,norecovery` (XFS) não alteram o hash |
-| T10 | Rede | QEMU + hardware | DHCP com fio (conforme P1); Wi-Fi via wpa_supplicant no T480s; `sshd` desligado (`ss -tln`) |
-| T11 | Sem persistência | QEMU | arranque sem partição de dados não bloqueia nem atrasa |
-| T12 | Hardware real | T480s (Libreboot) | arranque UEFI/payload, X11, Wayland, Wi-Fi |
+| T1 | Reproducible build | Void host | ISO produced; the log lists the manifest packages; no §4 package in the rootfs (`xbps-query -r`) |
+| T2 | BIOS boot | QEMU SeaBIOS | isolinux menu; boots to the TTY and greetd |
+| T3 | UEFI boot | QEMU OVMF | GRUB menu; same |
+| T4 | `d77.nogui` | QEMU | greetd does not start; TTY1 usable |
+| T5 | `nomodeset` + pwm | QEMU (VGA std) | pwm autologin starts with fbdev/vesa |
+| T6 | Autologin pwm → log out → greeter → wasp+Utumno | QEMU virtio-gpu | both sessions start; the bar shows "weather unavailable" with networking up (D1) |
+| T7 | Core tools | QEMU | every §2.2 binary runs `--version`/`-h` without missing libraries (check script) |
+| T8 | Integrity: target disks | QEMU with test disks: ext4 with an unclean journal, XFS, NTFS, LUKS2, MD RAID1, LVM, swap | after boot and after graphical login: no `md*` assembled, no LV active, no LUKS open, nothing mounted, swap inactive (`/proc/mdstat`, `lvs`, `lsblk`, `/proc/swaps`, `mount`); disk SHA-256 hashes identical before and after |
+| T9 | Safe mounting | QEMU | `blockdev --setro` + `mount -o ro,noload` (ext4) / `ro,norecovery` (XFS) do not change the hash |
+| T10 | Network | QEMU + hardware | wired DHCP (per P1); Wi-Fi via wpa_supplicant on the T480s; `sshd` off (`ss -tln`) |
+| T11 | No persistence | QEMU | booting without a data partition neither blocks nor delays |
+| T12 | Real hardware | T480s (Libreboot) | UEFI/payload boot, X11, Wayland, Wi-Fi |
 
-A persistência LUKS2 fica para depois da PoC base, como diz o RESEARCH_PLAN (fase 5, último passo).
+LUKS2 persistence comes after the base PoC, as the RESEARCH_PLAN says (phase 5, last step).
 
-## 7. Riscos conhecidos
-- **Autoativação MD/LVM depois do initramfs:** a mitigação (§5) não está testada. Se T8 falhar, avaliar regras udev locais no overlay.
-- **Utumno no wasp:** os widgets de workspaces são para Hyprland/Sway/niri, por isso no wasp podem ficar vazios. É estético e não bloqueia.
-- **greetd + pwm em live:** confirmado em uso real no portátil, nunca exercitado numa ISO.
-- **`dwl` e `scenefx0.5` só existem no repositório d77void:** a ISO depende da disponibilidade do SourceForge no momento do build.
-- **Label do ISO:** se ficar `VOID_LIVE`, há conflito com outras pens Void, daí a label própria.
-- **Estimativas de tamanho:** calculadas a partir de `run_depends`; o T1 mede o valor real.
+## 7. Known risks
+- **MD/LVM auto-activation after the initramfs:** the mitigation (§5) is untested. If T8 fails, consider local udev rules in the overlay. *(T8 initially failed on LVM because of runit's `vgchange -a ay`; fixed and passing.)*
+- **Utumno on wasp:** the workspace widgets target Hyprland/Sway/niri, so on wasp they may stay empty. Cosmetic, not blocking.
+- **greetd + pwm in live:** confirmed in real use on the laptop, never exercised in an ISO. *(Works in phase 5.)*
+- **`dwl` and `scenefx0.5` only exist in the d77void repository:** the ISO depends on SourceForge being available at build time.
+- **ISO label:** keeping `VOID_LIVE` would conflict with other Void sticks, hence the own label.
+- **Size estimates:** computed from `run_depends`; T1 measures the real value.
 
-## 8. Perguntas pendentes
-- **P1 — Rede ao arrancar:** `dhcpcd` ativo por defeito (ao estilo Grml, rede pronta, mas anuncia-se na rede ao arrancar) ou manual (`sv up dhcpcd`)?
-- **P2 — Relógio:** `chronyd` ativo (hora certa nos registos e hashes, mas contacta servidores NTP) ou manual?
-- **P3 — Aprovação:** aprovas o manifesto (§2), as exclusões (§3–4), a reutilização (§5) e o plano de testes (§6) para avançar para a fase 5?
+## 8. Open questions (answered)
+- **P1 — Network at boot:** `dhcpcd` enabled by default (Grml-style, network ready, but announces itself on the network at boot) or manual (`sv up dhcpcd`)? → **Enabled (D8).**
+- **P2 — Clock:** `chronyd` enabled (correct time in logs and hashes, but contacts NTP servers) or manual? → **Enabled (D9).**
+- **P3 — Approval:** do you approve the manifest (§2), exclusions (§3–4), reuse (§5) and test plan (§6) to move to phase 5? → **Approved (D10).**

@@ -1,5 +1,5 @@
 # ══════════════════════════════════════════════════════
-# Módulo greeter do quickshell-d77
+# quickshell-d77 greeter module
 # ══════════════════════════════════════════════════════
 module greeter
 
