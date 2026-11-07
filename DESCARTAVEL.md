@@ -32,7 +32,20 @@ xbps-install -S qemu qemu-system-amd64 edk2-ovmf xorriso ImageMagick python3 mto
 # the d77void cache untouched; pointing -c/-H at it directly also works but
 # adds the extra packages to it.
 cp -a /path/to/d77void/xbps-cachedir-x86_64 ./xbps-cachedir-x86_64
-./mkorphaned.sh                         # add "-- -k pt-latin1" etc. if wanted
+
+# The user also has the d77 packages compiled locally with xbps-src (ask for the
+# void-packages checkout path; binaries are in hostdir/binpkgs). Prefer that
+# local repository over SourceForge: -n drops the default extra repositories
+# (d77void SourceForge + Void nonfree), so add the local one and nonfree back.
+# Repositories given first take precedence in XBPS.
+./mkorphaned.sh -n \
+  -r /path/to/void-packages/hostdir/binpkgs \
+  -r https://repo-default.voidlinux.org/current/nonfree \
+  -- -k pt-latin1                       # extra mklive.sh options, if wanted
+# Check the build log ("install x86_64 <repo>" lines) that pwm, wasp, utumno,
+# qsd77, dwl, d77-st, scenefx0.5 and kantele came from the local repository.
+# If any d77 package is missing locally, re-run without -n (SourceForge fills
+# the gap) or build it with xbps-src first.
 export OVMF_CODE=/usr/share/edk2/x64/OVMF_CODE.4m.fd
 export OVMF_VARS=/usr/share/edk2/x64/OVMF_VARS.4m.fd
 ISO=$PWD/d77orphaned-live-x86_64-$(date -u +%Y%m%d).iso
