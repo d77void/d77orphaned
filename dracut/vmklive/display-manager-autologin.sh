@@ -7,6 +7,13 @@ type getarg >/dev/null 2>&1 || . /lib/dracut-lib.sh
 USERNAME=$(getarg live.user)
 [ -z "$USERNAME" ] && USERNAME=anon
 
+# Configure greetd autologin (d77orphaned): the overlay ships
+# /etc/greetd/config.toml with an [initial_session] whose user is the
+# placeholder @@LIVE_USER@@; fill in the live user created by adduser.sh.
+if [ -f ${NEWROOT}/etc/greetd/config.toml ]; then
+    sed -i "s|@@LIVE_USER@@|$USERNAME|g" ${NEWROOT}/etc/greetd/config.toml
+fi
+
 # Configure GDM autologin
 if [ -d ${NEWROOT}/etc/gdm ]; then
     GDMCustomFile=${NEWROOT}/etc/gdm/custom.conf

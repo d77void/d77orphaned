@@ -121,11 +121,6 @@ copy_dracut_files() {
     cp dracut/vmklive/* "$1"/usr/lib/dracut/modules.d/01vmklive/
 }
 
-copy_autoinstaller_files() {
-    mkdir -p "$1"/usr/lib/dracut/modules.d/01autoinstaller
-    cp dracut/autoinstaller/* "$1"/usr/lib/dracut/modules.d/01autoinstaller/
-}
-
 install_prereqs() {
     XBPS_ARCH=$HOST_ARCH "$XBPS_INSTALL_CMD" -r "$VOIDHOSTDIR" ${XBPS_REPOSITORY} \
          -c "$XBPS_HOST_CACHEDIR" -y "${REQUIRED_PKGS[@]}"
@@ -218,10 +213,9 @@ generate_initramfs() {
     local _args
 
     copy_dracut_files "$ROOTFS"
-    copy_autoinstaller_files "$ROOTFS"
     chroot "$ROOTFS" env -i PATH="/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin" \
         /usr/bin/dracut -N --"${INITRAMFS_COMPRESSION}" \
-        --add-drivers "ahci" --force-add "vmklive autoinstaller" --omit systemd "/boot/initrd" $KERNELVERSION
+        --add-drivers "ahci" --force-add "vmklive" --omit systemd "/boot/initrd" $KERNELVERSION
     [ $? -ne 0 ] && die "Failed to generate the initramfs"
 
     mv "$ROOTFS"/boot/initrd "$BOOT_DIR"
@@ -249,7 +243,6 @@ cleanup_rootfs() {
         fi
     done
     rm -r "$ROOTFS"/usr/lib/dracut/modules.d/01vmklive
-    rm -r "$ROOTFS"/usr/lib/dracut/modules.d/01autoinstaller
 }
 
 generate_isolinux_boot() {
@@ -295,8 +288,8 @@ generate_grub_efi_boot() {
 menuentry "${entrytitle}" --id "${id}" ${hotkey:+--hotkey $hotkey} {
     set gfxpayload="keep"
     linux (\${voidlive})/boot/${KERNEL_IMG} \\
-        root=live:CDLABEL=VOID_LIVE ro init=/sbin/init \\
-        rd.luks=0 rd.md=0 rd.dm=0 loglevel=4 gpt add_efi_memmap \\
+        root=live:CDLABEL=D77ORPHANED ro init=/sbin/init \\
+        rd.luks=0 rd.md=0 rd.dm=0 rd.lvm=0 loglevel=4 gpt add_efi_memmap \\
         vconsole.unicode=1 vconsole.keymap=${KEYMAP} locale.LANG=${LOCALE} ${cmdline}
     initrd (\${voidlive})/boot/initrd
 EOF
@@ -317,12 +310,10 @@ EOF
             "rd.live.ram $BOOT_CMDLINE $cmdline" "$dtb"
         write_entry "${ENTRY_TITLE} (graphics disabled)" "linuxnogfx${id_sfx}" \
             "nomodeset $BOOT_CMDLINE $cmdline" "$dtb"
-        write_entry "${ENTRY_TITLE} with speech" "linuxa11y${id_sfx}" \
-            "live.accessibility live.autologin $BOOT_CMDLINE $cmdline" "$dtb" 's'
-        write_entry "${ENTRY_TITLE} with speech (RAM)" "linuxa11yram${id_sfx}" \
-            "live.accessibility live.autologin rd.live.ram $BOOT_CMDLINE $cmdline" "$dtb" 'r'
-        write_entry "${ENTRY_TITLE} with speech (graphics disabled)" "linuxa11ynogfx${id_sfx}" \
-            "live.accessibility live.autologin nomodeset $BOOT_CMDLINE $cmdline" "$dtb" 'g'
+        # d77orphaned: console-only entry (no greetd) instead of the speech
+        # entries; accessibility packages are not part of the PoC.
+        write_entry "${ENTRY_TITLE} (console only)" "linuxnogui${id_sfx}" \
+            "d77.nogui $BOOT_CMDLINE $cmdline" "$dtb" 'c'
 
     }
 
@@ -491,7 +482,7 @@ generate_iso_image() {
     XORRISO_ARGS=(
         -iso-level 3 -rock -joliet -joliet-long -max-iso9660-filenames -omit-period
         -omit-version-number -relaxed-filenames -allow-lowercase
-        -volid VOID_LIVE
+        -volid D77ORPHANED
     )
 
     # Same layout as mkarchiso (and 66-d77): the ISO starts 16 sectors in and

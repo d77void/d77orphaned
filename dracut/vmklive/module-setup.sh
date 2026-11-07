@@ -29,4 +29,5 @@ install() {
     [ -f "$moddir/locale.sh" ]                    && inst_hook pre-pivot 03 "$moddir/locale.sh"
     [ -f "$moddir/accessibility.sh" ]             && inst_hook pre-pivot 04 "$moddir/accessibility.sh"
     [ -f "$moddir/nomodeset.sh" ]                 && inst_hook pre-pivot 05 "$moddir/nomodeset.sh"
+    [ -f "$moddir/nogui.sh" ]                     && inst_hook pre-pivot 06 "$moddir/nogui.sh"
 }
