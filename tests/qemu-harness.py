@@ -143,7 +143,12 @@ FIXTURES = ["vdb", "vdc", "vdd", "vde", "vdf", "vdg", "vdh", "vdi"]
 
 
 def fixture_args(workdir, readonly=False):
-    args = []
+    # The first virtio disk is vda: occupy it with an empty placeholder so the
+    # fixtures are vdb..vdi, the names the in-VM scripts expect.
+    pad = os.path.join(workdir, "fixture-vda-placeholder.img")
+    with open(pad, "wb") as f:
+        f.truncate(1 << 20)
+    args = ["-drive", f"file={pad},format=raw,if=virtio"]
     for d in FIXTURES:
         p = os.path.join(workdir, f"fixture-{d}.img")
         args += ["-drive", f"file={p},format=raw,if=virtio"]
@@ -210,7 +215,7 @@ def main():
         for d in FIXTURES:
             p = os.path.join(a.workdir, f"fixture-{d}.img")
             with open(p, "wb") as f:
-                f.truncate(256 << 20)
+                f.truncate(512 << 20)
         vm = VM(a.workdir, "prepare", direct(a.iso, a.workdir, "d77.nogui") + fixture_args(a.workdir))
         vm.login()
         copy_in(vm, os.path.join(here, "integrity-prepare.sh"), "/root/prepare.sh")

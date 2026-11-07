@@ -82,7 +82,9 @@ PKGS_FORENSICS="dcfldd libewf sleuthkit foremost"
 PKGS_HW="dmidecode pciutils usbutils hwinfo chntpw f3 lynis acpid"
 PKGS_OPS="tmux vim less man-db lsof strace pv zstd p7zip squashfs-tools dialog chrony xtools-minimal"
 
-PKGS_X11="xorg-minimal xorg-input-drivers xorg-video-drivers xinit setxkbmap xauth dejavu-fonts-ttf terminus-font font-misc-misc pwm d77-st dmenu dbus dbus-x11 elogind polkit"
+# xmodmap: pwm runs `xmodmap -pke` at startup and exits without it, but
+# the pwm package does not declare it (xorg-minimal does not pull it in).
+PKGS_X11="xorg-minimal xmodmap xorg-input-drivers xorg-video-drivers xinit setxkbmap xauth dejavu-fonts-ttf terminus-font font-misc-misc pwm d77-st dmenu dbus dbus-x11 elogind polkit"
 PKGS_WAYLAND="mesa-dri wasp utumno qsd77 quickshell matugen wmenu alacritty dunst awww"
 PKGS_LOGIN="greetd dwl"
 # d77 tools: Kantele (settings GUI for pwm and wasp).
@@ -165,7 +167,7 @@ build_variant() {
 
 	# shellcheck disable=SC2086
 	./mklive.sh -a "$ARCH" -o "$IMG" -p "$PKGS" -S "$SERVICES" -I "$INCLUDEDIR" \
-		-T "D77orphaned" ${REPO} "$@"
+		-T "D77orphaned" -x "$(pwd -P)/postsetup.sh" ${REPO} "$@"
 
 	cleanup
 }
