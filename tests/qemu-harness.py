@@ -18,8 +18,10 @@ Fixture disks are created in the workdir; nothing outside it is written.
 """
 import argparse, hashlib, os, re, shutil, socket, subprocess, sys, time
 
-OVMF_CODE = "/usr/share/OVMF/OVMF_CODE_4M.fd"
-OVMF_VARS = "/usr/share/OVMF/OVMF_VARS_4M.fd"
+# Debian/Ubuntu paths by default; on Void (edk2-ovmf) or elsewhere set
+# OVMF_CODE / OVMF_VARS in the environment.
+OVMF_CODE = os.environ.get("OVMF_CODE", "/usr/share/OVMF/OVMF_CODE_4M.fd")
+OVMF_VARS = os.environ.get("OVMF_VARS", "/usr/share/OVMF/OVMF_VARS_4M.fd")
 BASE_CMDLINE = ("root=live:CDLABEL=D77ORPHANED ro init=/sbin/init rd.luks=0 rd.md=0 rd.dm=0 "
                 "rd.lvm=0 loglevel=4 rd.live.overlay.overlayfs=1 console=tty0 console=ttyS0,115200")
 
@@ -38,6 +40,9 @@ class VM:
                "-chardev", f"socket,id=ser0,path={self.ser_path},server=on,wait=off",
                "-serial", "chardev:ser0",
                "-monitor", f"unix:{self.mon_path},server,nowait"] + args
+        # Use KVM when available (much faster); D77_NO_KVM=1 forces pure emulation.
+        if os.access("/dev/kvm", os.R_OK | os.W_OK) and not os.environ.get("D77_NO_KVM"):
+            cmd[1:1] = ["-enable-kvm", "-cpu", "host"]
         self.proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=open(
             os.path.join(workdir, f"{name}.qemu.err"), "w"))
         for _ in range(100):
