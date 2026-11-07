@@ -11,6 +11,7 @@ Scenarios:
   uefi-menu    T3: OVMF, idem with the GRUB menu
   serial       direct kernel boot with console=ttyS0 (+ extra cmdline), log in as root,
                run one command and print its output (used for T4, T7, T10, T11)
+  sessions     T6: autologin pwm, Kantele on X11, greeter -> wasp+Utumno, Kantele on Wayland
   integrity    T8/T9: prepare fixture disks, hash them, boot again normally, check, hash again
 
 Fixture disks are created in the workdir; nothing outside it is written.
@@ -184,6 +185,7 @@ def main():
     ap.add_argument("--cmd", default="true")
     ap.add_argument("--extra", default="")
     ap.add_argument("--wait", type=int, default=300, help="seconds before the 'booted' screenshot")
+    ap.add_argument("--downs", type=int, default=1, help="sessions: Down presses to reach wasp")
     a = ap.parse_args()
     os.makedirs(a.workdir, exist_ok=True)
     here = os.path.dirname(os.path.abspath(__file__))
@@ -209,6 +211,42 @@ def main():
         if a.wait:
             time.sleep(a.wait)
             print("screen:", vm.screenshot("serial-screen"))
+        vm.quit()
+
+    elif a.scenario == "sessions":
+        # T6: autologin pwm -> Kantele (X11) -> leave pwm -> greeter -> wasp+Utumno
+        # (typed via the QEMU monitor) -> Kantele (Wayland). Screenshots at each step.
+        vm = VM(a.workdir, "sessions", direct(a.iso, a.workdir))
+        vm.login()
+        time.sleep(a.wait)
+        print(vm.run("pgrep -a pwm; pgrep -a Xorg", 120))
+        print("pwm:", vm.screenshot("t6-pwm"))
+        vm.run("su - anon -c 'DISPLAY=:0 XAUTHORITY=/home/anon/.Xauthority setsid kantele >/tmp/kantele-x11.log 2>&1 &'", 60)
+        time.sleep(90)
+        print("kantele x11:", vm.screenshot("t6-pwm-kantele"))
+        print(vm.run("pgrep -a -f kantele; tail -5 /tmp/kantele-x11.log", 60))
+        vm.run("pkill -x pwm", 60)
+        time.sleep(90)
+        print("greeter:", vm.screenshot("t6-greeter"))
+        def keys(text):
+            for ch in text:
+                vm.monitor(f"sendkey {ch}")
+        keys("anon"); vm.monitor("sendkey ret"); time.sleep(3)
+        keys("voidlinux"); vm.monitor("sendkey tab"); time.sleep(3)
+        print("greeter typed:", vm.screenshot("t6-greeter-typed"))
+        print(vm.run("ls /usr/share/wayland-sessions /usr/share/xsessions", 60))
+        for _ in range(a.downs):  # move the session field to wasp
+            vm.monitor("sendkey down"); time.sleep(3)
+        print("session field:", vm.screenshot("t6-greeter-session"))
+        vm.monitor("sendkey ret")
+        time.sleep(a.wait)
+        print(vm.run("pgrep -a wasp; pgrep -a qs; pgrep -a dwl; "
+                     "tail -n 40 /home/anon/.local/state/wasp/wasp.log* 2>&1", 120))
+        print("wasp:", vm.screenshot("t6-wasp"))
+        vm.run("su - anon -c 'XDG_RUNTIME_DIR=/run/user/1000 WAYLAND_DISPLAY=wayland-0 QT_QPA_PLATFORM=wayland setsid kantele >/tmp/kantele-wl.log 2>&1 &'", 60)
+        time.sleep(90)
+        print("kantele wayland:", vm.screenshot("t6-wasp-kantele"))
+        print(vm.run("pgrep -a -f kantele; tail -5 /tmp/kantele-wl.log; ls /run/user/1000", 60))
         vm.quit()
 
     elif a.scenario == "integrity":

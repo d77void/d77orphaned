@@ -116,6 +116,9 @@ _include_base() {
 	cp -r ./wasp/skel/. "$INCLUDEDIR"/etc/skel/
 	install -Dm755 ./common/d77orphaned/pwm-startup.sh \
 		"$INCLUDEDIR"/etc/d77orphaned/pwm-startup.sh
+	# greetd sources /etc/profile (and so profile.d) before each session.
+	install -Dm644 ./common/profile.d/d77orphaned-wlr.sh \
+		"$INCLUDEDIR"/etc/profile.d/d77orphaned-wlr.sh
 
 	# acpi-gpe-guard: guards against a runaway ACPI GPE (firmware
 	# interrupt-storm bug seen on some laptops — masks whichever GPE is
