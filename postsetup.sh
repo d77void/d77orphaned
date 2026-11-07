@@ -6,10 +6,19 @@
 # on every boot, outside udev — masking 69-dm-lvm.rules is not enough. An
 # empty auto_activation_volume_list makes every "-a ay" (and pvscan
 # --autoactivation) activate nothing; event_activation = 0 also stops the
-# udev/event path. LVs on target disks are activated only by hand
-# (vgchange -ay / lvchange -ay -pr).
+# udev/event path. LVs on target disks are activated only by hand, read-only
+# with: vgchange -ay --config 'activation { read_only_volume_list = [ "<vg>" ] }' <vg>
 set -eu
 ROOTFS="$1"
+
+# Where to get the source of every installed package, and the written offer
+# for the GPL software (mksources.sh). Kept in the image, and written next to
+# the ISO too when mkorphaned.sh sets D77_SOURCES_OUT.
+sources="$ROOTFS/usr/share/doc/d77orphaned/SOURCES.txt"
+mkdir -p "${sources%/*}"
+"$(dirname "$0")/mksources.sh" "$ROOTFS" "$sources"
+[ -z "${D77_SOURCES_OUT:-}" ] || cp "$sources" "$D77_SOURCES_OUT"
+
 conf="$ROOTFS/etc/lvm/lvm.conf"
 [ -f "$conf" ] || { echo "postsetup: $conf not found" >&2; exit 1; }
 

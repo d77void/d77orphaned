@@ -186,6 +186,8 @@ include_greetd() {
 
 build_variant() {
 	IMG=d77orphaned-live-${ARCH}-${DATE}.iso
+	# postsetup.sh writes the SOURCES text next to the ISO as well.
+	export D77_SOURCES_OUT="$(pwd -P)/${IMG%.iso}.SOURCES.txt"
 
 	PKGS="$PKGS_DISKS $PKGS_RECOVERY $PKGS_FS $PKGS_VOLUMES $PKGS_BOOT $PKGS_NET $PKGS_NETDIAG $PKGS_FORENSICS $PKGS_HW $PKGS_OPS $PKGS_X11 $PKGS_WAYLAND $PKGS_LOGIN $PKGS_D77TOOLS"
 

@@ -1,6 +1,7 @@
 *.img
 *.xz
 *.iso
+*.SOURCES.txt
 *.raw
 *.tar.gz
 *.box
