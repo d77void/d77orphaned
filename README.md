@@ -1,6 +1,6 @@
 # D77orphaned — Proof of Concept
 
-> **Estado: PLANEAMENTO / INVESTIGAÇÃO.** Este repositório não declara nenhuma ISO funcional nem qualquer pacote validado.
+> **Estado: PROTÓTIPO (fase 5).** Gate aprovado em 2026-11-07 (`docs/APPROVAL_GATE.md`). O resultado dos testes está em `docs/TEST_REPORT.md`; nada além do que lá está foi testado.
 
 ## Visão
 
@@ -44,3 +44,22 @@ Nova distro independente, kernel próprio, ambiente gráfico novo, interface QML
 ## Critério de sucesso
 
 Uma imagem que arranque em hardware real e VM, forneça consola útil, disponibilize ferramentas **verificadas**, permita iniciar cada sessão gráfica de forma controlada, não altere discos alvo por defeito e continue operacional sem partição persistente. Não prometer capacidades não testadas.
+
+## Origem do código
+
+Este repositório começou como **clone integral do `d77void/d77void` no commit `c567d0cf`** (com histórico) e foi depois podado para a PoC. `git diff c567d0cf` mostra tudo o que foi retirado ou alterado. O builder (`mklive.sh`, `lib.sh`, `dracut/`, `grub/`, `isolinux/`) deriva do void-mklive — BSD-2-Clause, ver `COPYING`; o restante é MIT (`LICENSE`).
+
+## Construir
+
+Num host Void Linux x86_64, como root, a partir da raiz do repositório:
+
+```sh
+./mkorphaned.sh                         # d77orphaned-live-x86_64-AAAAMMDD.iso
+./mkorphaned.sh -- -k pt-latin1 -l pt_PT.UTF-8   # opções extra para o mklive.sh
+```
+
+Usa por defeito os repositórios d77void (SourceForge) e Void nonfree (`nmap`) além dos oficiais. Ferramentas do host: xbps, `mkfs.vfat`, `losetup`, e `mtools` se o kernel do host não montar vfat.
+
+## Testar
+
+`tests/qemu-harness.py` (host, QEMU; KVM opcional) corre os cenários do plano de testes; `tests/check-tools.sh` e `tests/integrity-*.sh` correm dentro da VM. Os testes de integridade criam e destroem discos **descartáveis** na pasta de trabalho; nunca correr `integrity-prepare.sh` em hardware real.
