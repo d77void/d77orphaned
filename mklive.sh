@@ -376,15 +376,17 @@ EOF
 
     cp -f "$GRUB_DATADIR"/unicode.pf2 "$GRUB_DIR"/fonts
 
-    modprobe -q loop || :
+    modprobe -q loop 2>/dev/null || :
 
     # Create EFI vfat image.
     truncate -s 32M "$GRUB_DIR"/efiboot.img >/dev/null 2>&1
     mkfs.vfat -F12 -S 512 -n "grub_uefi" "$GRUB_DIR/efiboot.img" >/dev/null 2>&1
 
+    # d77orphaned: stage the EFI tree in a plain directory and write it into
+    # efiboot.img at the end (populate_efi_image). Upstream mounted the image
+    # here with errors discarded and unchecked, so a failed vfat mount gave
+    # an ISO with an empty EFI partition and a "successful" build.
     GRUB_EFI_TMPDIR="$(mktemp --tmpdir="$BUILDDIR" -dt grub-efi.XXXXX)"
-    LOOP_DEVICE="$(losetup --show --find "${GRUB_DIR}"/efiboot.img)"
-    mount -o rw,flush -t vfat "${LOOP_DEVICE}" "${GRUB_EFI_TMPDIR}" >/dev/null 2>&1
 
 	build_grub_image() {
 		local GRUB_ARCH="$1" EFI_ARCH="$2"
@@ -394,8 +396,6 @@ EOF
 			 --output="/tmp/boot${EFI_ARCH,,}.efi" \
 			 "boot/grub/grub.cfg"
 		if [ $? -ne 0 ]; then
-			umount "$GRUB_EFI_TMPDIR"
-			losetup --detach "${LOOP_DEVICE}"
 			die "Failed to generate EFI loader"
 		fi
 		mkdir -p "${GRUB_EFI_TMPDIR}"/EFI/BOOT
@@ -418,9 +418,35 @@ EOF
 			build_grub_image arm64 aa64
             ;;
     esac
-    umount "$GRUB_EFI_TMPDIR"
-    losetup --detach "${LOOP_DEVICE}"
+    populate_efi_image "${GRUB_DIR}"/efiboot.img "$GRUB_EFI_TMPDIR"
     rm -rf "$GRUB_EFI_TMPDIR"
+}
+
+# d77orphaned: copy the staged EFI tree ($2) into the FAT image ($1). Loop
+# mount first (same as upstream); if the host can't mount vfat, fall back
+# to mtools; if neither works, fail the build instead of shipping an ISO
+# that can't boot on UEFI.
+populate_efi_image() {
+    local img="$1" src="$2" mnt loopdev
+    mnt="$(mktemp --tmpdir="$BUILDDIR" -dt efi-mnt.XXXXX)"
+    loopdev="$(losetup --show --find "$img" 2>/dev/null)" || loopdev=
+    if [ -n "$loopdev" ] && mount -o rw,flush -t vfat "$loopdev" "$mnt" 2>/dev/null; then
+        cp -r "$src"/. "$mnt"/ || die "Failed to copy the EFI tree into $img"
+        umount "$mnt"
+        losetup --detach "$loopdev"
+    else
+        [ -n "$loopdev" ] && losetup --detach "$loopdev"
+        command -v mcopy >/dev/null 2>&1 ||
+            die "Cannot write $img: vfat loop mount failed and mtools (mcopy) is not installed"
+        info_msg "vfat loop mount unavailable; writing $img with mtools"
+        mcopy -s -i "$img" "$src"/* ::/ || die "mcopy failed to write $img"
+    fi
+    rmdir "$mnt"
+    # The image must contain the x86_64 loader, whatever path was taken.
+    if command -v mdir >/dev/null 2>&1; then
+        mdir -i "$img" ::/EFI/BOOT/BOOTX64.EFI >/dev/null 2>&1 ||
+            case "$TARGET_ARCH" in x86_64*) die "$img has no EFI/BOOT/BOOTX64.EFI";; esac
+    fi
 }
 
 generate_squashfs() {
