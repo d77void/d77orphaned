@@ -66,6 +66,27 @@ What a build produces and needs:
 - The user documentation goes into the image (`/usr/share/doc/d77orphaned`, opened with `d77-docs`) when a checkout of [d77void/orphaned-docs](https://github.com/d77void/orphaned-docs) sits next to this repository (or `D77_DOCS_DIR` points to one) and `mdbook` is installed on the build host. Without them the build warns and goes on.
 - The build runs in a private mount namespace with an empty `/boot`, because `mklive.sh` would otherwise regenerate the **host's** `/boot/grub/grub.cfg` (memtest86+'s post-install script); it fails if the host's `grub.cfg` changes anyway (`docs/TEST_REPORT.md`, defect 5).
 
+### ⚠️ IMPORTANT — Offline documentation
+
+The d77orphaned ISO includes a complete offline mdBook manual, but **the documentation is not bundled in this repository**.
+
+To include it in the ISO, **both requirements must be met before building**:
+
+1. Install `mdBook` on the build host.
+2. Clone [d77void/orphaned-docs](https://github.com/d77void/orphaned-docs) alongside the `d77orphaned` repository.
+
+```sh
+sudo xbps-install -S mdBook
+git clone https://github.com/d77void/orphaned-docs.git ../orphaned-docs
+sudo ./mkorphaned.sh
+```
+
+If the documentation is stored elsewhere, set `D77_DOCS_DIR` to its location.
+
+**WARNING:** If either requirement is missing, the build will continue, but the resulting ISO **will not contain the offline documentation**.
+
+Check the build output for the documentation inclusion confirmation before distributing the ISO.
+
 ## Testing
 
 `tests/qemu-harness.py` (host, QEMU; KVM optional) runs the test plan scenarios; `tests/check-tools.sh` and `tests/integrity-*.sh` run inside the VM. The integrity tests create and destroy **disposable** disks in the working directory; never run `integrity-prepare.sh` on real hardware.
