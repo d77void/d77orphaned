@@ -70,12 +70,41 @@
 
 The user documentation is in [d77void/orphaned-docs](https://github.com/d77void/orphaned-docs) (site and SourceForge wiki).
 
+## Third round (2026-11-08): first real-hardware use, desktop and tools
+
+The user booted the ISO on real hardware and reported: missing desktop basics (browser, file manager, icons, fonts, NetworkManager), no battery in Utumno, no wallpapers in pwm or wasp, no conky, no screen lock, and `xbps` not working. Fixes are decisions D17–D21 (`BASELINE_AUDIT.md` §9); the package review is in `PACKAGE_INVENTORY.md`.
+
+- **ISO:** `d77orphaned-live-x86_64-20261108.iso`, 2,062,133,248 bytes, sha256 `67d3f024bf126b69170531da8bf68dec4b18d2c060f89c421b4c294f0a8af92d`, 711 binary packages. Built from SourceForge under the build guard (host `grub.cfg` unchanged). Written to the user's USB stick, verified by hash.
+- **VM:** QEMU 11.1.3 with KVM, as in the second round.
+
+| # | Test | Result | Evidence |
+|---|---|---|---|
+| — | `xbps` | **PASS** | `xbps-install -S` and `xbps-install -y tree` work as root; the reported failure was the user's network not being connected |
+| — | pwm session | **PASS** | theme wallpaper (feh), conky, xautolock, xcompmgr, dunst, PipeWire + WirePlumber and the polkit agent running; `slock` present |
+| — | Theme change (Kantele) | **PASS** | `[theme] active = "dracula"` + SIGHUP: pwm re-execs, the Dracula wallpaper is applied, and no background program is started twice |
+| — | Leaving pwm after a theme change | **PASS** | `pkill pwm` ends the session and the greeter appears |
+| — | Sound | **PASS (VM)** | `pactl info`: "PulseAudio (on PipeWire 1.6.10)" in both sessions (no sound card in the VM) |
+| — | Battery (UPower) | **PASS (VM)** | `upower` daemon answers (`on-battery: no`, no battery in the VM) |
+| — | NetworkManager | **PASS** | starts at boot, wired connected by itself; Utumno shows "wired"; Wi-Fi works on the user's hardware |
+| — | wasp wallpaper | **PASS** | the default wallpaper is applied before Utumno starts (its backdrop hides). Switching with `set-wallpaper.sh apply` (what `super+y` runs) works on real hardware; in the VM (software rendering) the new image appears only with a transition, a wasp repaint quirk not seen with a GPU |
+| T6 | autologin pwm → greeter → wasp | **PASS (2/2)** | wasp, qsd77 and Utumno; Kantele on Wayland |
+| T7 | Libraries and commands | **PASS** | 2006 ELF executables, 0 missing libraries |
+| T8 | Target disk integrity | **PASS** | 8 test disks unchanged after a full boot with a graphical session |
+
+### Defects found and fixed in this round
+
+10. **No wallpaper in wasp on a live system.** Utumno hides its backdrop only when `~/.cache/quickshell/wallpaper/current` exists when it starts; a fresh live home has none, so every wallpaper picked stayed under the backdrop. Fix (D20): `wasp-wallpaper.sh` applies a wallpaper before Utumno starts.
+11. **pwm's startup script lost the wallpaper, conky and lock.** The minimal script written to avoid `udiskie` kept only `dunst`. Fix (D19), including starting each program once, since pwm re-runs the script on every theme change.
+12. **Conky unreadable** (white text on pwm's light default wallpaper) and covering the wallpaper's kitten. Dark panel, bottom left.
+
+Not yet built into an ISO and tested (made after the image above): conky on the left, and the documentation inside the ISO (`d77-docs`).
+
 ## Open
 
-- **T12 real hardware:** still to do on the user's side (T480s/Libreboot): boot, pwm, wasp + Utumno with a real GPU, Wi-Fi via `wpa_supplicant`, the Kantele keyboard layout, and the `nomodeset` and console-only entries. No disks with data attached.
+- **T12 real hardware:** started by the user on 2026-11-08 (boot, both sessions, Wi-Fi with NetworkManager, wallpaper switching). Still to confirm there: the Kantele keyboard layout, the `nomodeset` and console-only entries, sound and battery.
 - **MD RAID read-only assembly** (`mdadm --assemble --readonly`): documented but not tested.
 - **Phase-5 T6 case** (wasp login ending in pwm): not reproduced in 9 runs with greetd logging to `/var/log/greetd` (the harness now sets that up). Treated as unexplained, not fixed.
 - **Cosmetic:**
   - on wasp with software rendering, the background shows leftovers of the greeter, and there is a black block left of Utumno's bar;
-  - Utumno's network widget says "offline" because it reads NetworkManager state, which the ISO does not have; DHCP works.
-- **Size:** the ISO is 1.6 GiB, above the gate's 0.9–1.1 GiB estimate.
+- **Size:** the ISO is 2.06 GB (1.6 GiB before D17/D18), well above the gate's 0.9–1.1 GiB estimate; Mullvad Browser (350 MB installed) and Papirus (117 MB) are the largest additions.
+- **Next build:** conky on the left and the built-in documentation, then a short re-test.

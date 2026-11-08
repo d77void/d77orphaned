@@ -1,6 +1,6 @@
 # d77orphaned — Proof of Concept
 
-> **Status: PROTOTYPE (phase 5).** Gate approved on 2026-11-07 (`docs/APPROVAL_GATE.md`). Test results are in `docs/TEST_REPORT.md`; nothing beyond what is listed there has been tested.
+> **Status: PROTOTYPE (phase 5).** Gate approved on 2026-11-07 (`docs/APPROVAL_GATE.md`). Tested in QEMU in three rounds and, since 2026-11-08, used on real hardware by the user; results in `docs/TEST_REPORT.md`, nothing beyond what is listed there has been tested. User documentation: <https://d77void.github.io/orphaned-docs/> (also inside the ISO: `d77-docs`).
 
 ## Vision
 
@@ -58,7 +58,13 @@ On a Void Linux x86_64 host, as root, from the repository root:
 ./mkorphaned.sh -- -k pt-latin1 -l pt_PT.UTF-8    # extra options for mklive.sh
 ```
 
-By default it uses the d77void (SourceForge) and Void nonfree (`nmap`) repositories in addition to the official ones. Host tools: xbps, `mkfs.vfat`, `losetup`, and `mtools` if the host kernel cannot mount vfat.
+By default it uses the d77void (SourceForge) and Void nonfree (`nmap`) repositories in addition to the official ones; `-n` drops them and `-r <repo>` adds one (repositories given first take precedence). Host tools: xbps, `mkfs.vfat`, `losetup`, `unshare`, and `mtools` if the host kernel cannot mount vfat.
+
+What a build produces and needs:
+
+- `d77orphaned-live-x86_64-YYYYMMDD.iso` and `d77orphaned-live-x86_64-YYYYMMDD.SOURCES.txt` in the repository root. The SOURCES file (also inside the image, `/usr/share/doc/d77orphaned/SOURCES.txt`) lists every package with its license and source, and carries the written offer for the GPL software; publish it with the ISO (`docs/APPROVAL_GATE.md` §9).
+- The user documentation goes into the image (`/usr/share/doc/d77orphaned`, opened with `d77-docs`) when a checkout of [d77void/orphaned-docs](https://github.com/d77void/orphaned-docs) sits next to this repository (or `D77_DOCS_DIR` points to one) and `mdbook` is installed on the build host. Without them the build warns and goes on.
+- The build runs in a private mount namespace with an empty `/boot`, because `mklive.sh` would otherwise regenerate the **host's** `/boot/grub/grub.cfg` (memtest86+'s post-install script); it fails if the host's `grub.cfg` changes anyway (`docs/TEST_REPORT.md`, defect 5).
 
 ## Testing
 

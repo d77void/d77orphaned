@@ -1,0 +1,14 @@
+#!/bin/sh
+# d77-docs — open the d77orphaned documentation shipped in the image
+# (/usr/share/doc/d77orphaned), with or without a network: in Mullvad Browser
+# in a graphical session, in links on a console. The Markdown sources are in
+# /usr/share/doc/d77orphaned/md, readable with less.
+html=/usr/share/doc/d77orphaned/html/index.html
+if [ ! -f "$html" ]; then
+	echo "d77-docs: the documentation is not in this image; see https://d77void.github.io/orphaned-docs/" >&2
+	exit 1
+fi
+if [ -n "$WAYLAND_DISPLAY$DISPLAY" ] && command -v mullvad-browser >/dev/null 2>&1; then
+	exec mullvad-browser "file://$html"
+fi
+exec links "$html"

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=d77orphaned Docs
+Comment=Documentation of d77orphaned, available without a network
+Exec=d77-docs
+Icon=help-browser
+Terminal=false
+Categories=Documentation;System;

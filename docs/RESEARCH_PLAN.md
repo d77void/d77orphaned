@@ -1,5 +1,7 @@
 # Research plan — gate before building
 
+> **Where the project is (2026-11-08):** phases 0–4 are done (inventory, matrix, triage, gate approved on 2026-11-07). Phase 5, the prototype, is in progress: three rounds of tests (`TEST_REPORT.md`), first use on real hardware by the user, and the package set extended after that use (`PACKAGE_INVENTORY.md`, "Review after the first real-hardware use"; decisions D17–D21 in `BASELINE_AUDIT.md` §9). Optional persistence (LUKS2) has not been started.
+
 ## Phase 0 — Reconnaissance (read-only)
 
 - **First question:** x86_64 glibc or musl. It determines whether pwm, wasp and Utumno already exist as binaries in the d77void repository for that variant (phase 0 result: wasp and scenefx0.5 exist only for glibc — see `BASELINE_AUDIT.md` §2).

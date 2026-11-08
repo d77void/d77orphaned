@@ -94,6 +94,70 @@ Rationale:
 - d77 packages reused unchanged: `pwm`, `d77-st`, `wasp`, `scenefx0.5`, `utumno`, `qsd77`, `dwl`, `kantele` (wasp/scenefx0.5/dwl glibc only).
 - New essential ports: **0** (x86_64 glibc).
 - New optional ports: `bulk_extractor` (1); on musl, +2 (`wasp`, `scenefx0.5`).
-- Size: estimate core+pwm+wasp ≈ 2.4 GiB installed → ISO ≈ 0.9–1.2 GiB; **measured in phase 5: ISO 1.6 GiB**, 450 packages.
+- Size: estimate core+pwm+wasp ≈ 2.4 GiB installed → ISO ≈ 0.9–1.2 GiB; **measured in phase 5: ISO 1.6 GiB**, 450 packages. **2026-11-08, after D17/D18:** ISO 2.06 GB (2,062,133,248 bytes), 711 binary packages from 615 source packages.
 
 **Sustainability gate:** with **5** new essential ports, stop and review the scope with the user; near **30**, the design is infeasible. A missing package does not force a port.
+
+## Review after the first real-hardware use (2026-11-08)
+
+The user found the image hard to use day to day: no battery in Utumno, no wallpapers, missing desktop basics and tools. Two comparisons, both **verified by command** on 2026-11-08 (x86_64 glibc; repositories Void `current`, `current/nonfree` and d77void on SourceForge):
+
+- **Grml:** `grml-live` @ `6d729f0` (2026-11-06), lists `GRMLBASE`, `GRML_FULL` and `XORG` (amd64). 383 entries: 100 already in the ISO, 149 available in Void (after mapping Debian names, e.g. `gddrescue`→`ddrescue`, `lm-sensors`→`lm_sensors`, `bind9-dnsutils`→`bind-utils`), 46 not found in Void under that name, 67 Debian/Grml-specific (apt, grml-*, firmware-*, systemd, …).
+- **d77void desktop:** the packages of d77void's `wasp` and `pwm` variants (`mkd77.sh` @ `c567d0cf`, glibc) that the ISO lacks: 76.
+
+Already decided (D17): `mullvad-browser` `NetworkManager` `font-hack-ttf` `feh` `conky` `papirus-icon-theme` `ranger`.
+
+Root causes found while comparing: Utumno reads the battery through **UPower** (`upower` missing) and pwm's volume keys run `pactl` (no audio stack: `pipewire`, `wireplumber`, `pulseaudio-utils` missing).
+
+Sizes are installed sizes of the package alone, not counting dependencies.
+
+### A. Desktop: needed for the sessions to work as in d77void (proposed: include)
+
+| Packages | Size | Why |
+|---|---|---|
+| `upower` | 0.6 MB | battery in Utumno (and pwm's bar) |
+| `pipewire` `wireplumber` `alsa-pipewire` `pulseaudio-utils` `pavucontrol` | 8 MB | sound; pwm/Utumno volume keys and widgets (`pactl`) |
+| `mate-polkit` | 0.3 MB | password prompts for graphical programs (e.g. NetworkManager) |
+| `nerd-fonts-symbols-ttf` `noto-fonts-emoji` `font-awesome6` | 17 MB | icons in the bars and Kantele |
+| `xdg-desktop-portal` `xdg-desktop-portal-gtk` `xdg-desktop-portal-wlr` `qt5-wayland` | 7 MB | file dialogs, screen sharing, Qt5 programs on Wayland |
+| `xdg-utils` `xdg-user-dirs` | 0.5 MB | opening links/files with the right program |
+| `arc-theme` `qt6ct` `nwg-look` | 13 MB | the same look as d77void |
+| `htop` `inxi` `bash-completion` `nano` `unzip` `wget` `bc` | 11 MB | everyday basics |
+| `zathura` `zathura-pdf-poppler` | 2 MB | reading PDFs (manuals, reports) |
+
+### B. Tools from Grml, small and useful for recovery (proposed: include)
+
+| Area | Packages | Size |
+|---|---|---|
+| Console | `mc` `ncdu` `tree` `screen` `psmisc` `sysstat` `iotop` `moreutils` `mbuffer` | 13 MB |
+| Hardware | `lshw` `lm_sensors` `memtester` `stress` `fio` `cpuid` `cpupower` `acpi` | 19 MB |
+| Disks/filesystems | `dmraid` `dislocker` (BitLocker) `xmount` `afflib` `extundelete` `gpart` `jfsutils` `xfsdump` `bcache-tools` `fuse-exfat` | 4 MB |
+| Network | `bind-utils` `whois` `ipcalc` `iftop` `nethogs` `iperf3` `net-tools` `wireguard-tools` `openvpn` `lftp` `links` | 13 MB |
+| Network filesystems | `fuse-sshfs` `nfs-utils` `cifs-utils` | 2 MB |
+| Analysis | `hexedit` `ltrace` `binwalk` | 4 MB |
+| Archives | `zip` `cabextract` `lz4` `lzop` `unp` | 1 MB |
+| Serial consoles | `minicom` `tio` | 1 MB |
+| Other | `kexec-tools` `gnupg` | 13 MB |
+
+### C. Only on request (useful, but large, niche or services)
+
+`git` (47 MB), `samba` (22 MB), `restic` (41 MB), `borg`, `duplicity`, `gparted` (GUI that writes partitions), `pcmanfm`, `mpv`, `stress-ng` (15 MB), `ipmitool`, iSCSI (`open-iscsi` `tgt` `targetcli-fb`), network services (`dnsmasq` `hostapd` `radvd` `avahi`), `netsniff-ng`, `iptraf-ng`, `mosh`, `irssi`, accessibility (`brltty` `espeakup`, deferred since phase 1), `zsh`.
+
+### D. Excluded (with reason)
+
+| Packages | Reason |
+|---|---|
+| `nwipe` `srm` `wipe` | destructive by nature |
+| `udisks2` `udiskie` `gvfs` | automounting (integrity policy) |
+| `fwupd` | writes device firmware; not a default in a forensic ISO |
+| `gcc` (234 MB), `edk2-ovmf` (154 MB), `qemu` | size / out of scope |
+| `debootstrap` `rinse` `mmdebstrap` | install Debian/RPM systems |
+| `open-vm-tools` `qemu-ga` | guest agents, not for a rescue system |
+| `cups` `system-config-printer` `plymouth` `ollama` `brave-bin` `octoxbps` `transmission-qt` `uget` `yt-dlp` `geary` `cmus` `d77run` | no role in the PoC (d77void desktop extras) |
+| `fluxbox` `xterm` `x11vnc` | Grml's own X session; d77orphaned has pwm and wasp |
+
+Not in Void under any name found: `partimage`, `clonezilla`, `hping3`, `autopsy`, `recoverjpeg`, `myrescue`, `disktype`, `dump`, `udpcast`, `ipxe` (as a package), and others in the 46 above. None is essential; porting is not proposed (AGENTS.md: priority 4, exclude/defer).
+
+**Estimate:** A ≈ 60 MB, B ≈ 70 MB of the packages themselves, plus dependencies; to be measured by a build.
+
+**Decided (D18, 2026-11-08):** A and B approved by the user, `mc` kept although `ranger` is in. Removed from B on review: `dmraid` (runit's `03-filesystems.sh` runs `dmraid -i -ay` at boot whenever it is installed) and `bcache-tools` (its udev rule and dracut module register bcache devices on their own). Added for the pwm session: `d77-slock`, `xautolock`, `xcompmgr` (D19). Measured: ISO 2.06 GB (from 1.9 GB with D17 only, 1.7 GB before).

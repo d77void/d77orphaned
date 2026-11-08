@@ -139,11 +139,18 @@ wasp.modkey = "alt"
 -- daemons etc., same as upstream dwl.
 wasp.autostart = {
 -- d77orphaned: no udiskie (no automounting of target disks), no
--- pipewire/polkit agent/xdg-user-dirs/.auto.sh/idle-lock -- not shipped.
+-- xdg-user-dirs/.auto.sh/idle-lock.
 { "awww-daemon" },
-{ "/usr/share/quickshell/utumno/wallpaper/./set-wallpaper.sh" },
+{ "pipewire" },
+{ "/usr/libexec/polkit-mate-authentication-agent-1" },
 { "dunst" },
-{ "sh", "-c", "qsd77 run -c utumno" },
+-- d77orphaned: set the wallpaper *before* Utumno starts. Utumno hides its
+-- backdrop only when ~/.cache/quickshell/wallpaper/current exists, and it
+-- does not notice that file being created later, so on a live system (fresh
+-- home, no file yet) the backdrop would stay over every wallpaper picked
+-- with super+y. wasp-wallpaper.sh restores the saved wallpaper or applies a
+-- default one, which writes that file.
+{ "sh", "-c", "/etc/d77orphaned/wasp-wallpaper.sh; exec qsd77 run -c utumno" },
 }
 
 -- Named scratchpads -- a hidden, toggleable floating window per slot.

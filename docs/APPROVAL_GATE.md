@@ -25,6 +25,8 @@ Notes in *italics* record how phase 5 actually implemented or changed an item.
 
 ## 2. Proposed manifest
 
+*Since 2026-11-08 the manifest is larger than this section: see `PACKAGE_INVENTORY.md`, "Review after the first real-hardware use", and decisions D17–D19.*
+
 ### 2.1 Included automatically by `mklive.sh` (not listed)
 `base-system` (kernel 6.18, linux-firmware), `syslinux`, `grub-i386-efi`, `grub-x86_64-efi`, `memtest86+` and the initramfs packages (`dracut-network`, `device-mapper`…).
 
@@ -64,10 +66,10 @@ Notes in *italics* record how phase 5 actually implemented or changed an item.
 |---|---|---|
 | `dbus` `elogind` `polkitd` `acpid` | enabled | needed by the graphical sessions and ACPI *(elogind is D-Bus activated, not a runit service)* |
 | `greetd` | enabled, except with `d77.nogui` | D5–D7 |
-| `dhcpcd` | enabled | D8 |
+| `dhcpcd` | enabled | D8 *(replaced by NetworkManager at boot, D17; dhcpcd stays installed)* |
 | `chronyd` | enabled | D9 |
 | `sshd` | **disabled** | installed; after changing the passwords, enable it with `ln -s /etc/sv/sshd /var/service/` (`sv up sshd` fails: the service is not linked) |
-| `wpa_supplicant` | disabled | used manually or via dhcpcd |
+| `wpa_supplicant` | disabled | used manually or via dhcpcd *(NetworkManager uses it on its own, D17)* |
 
 ## 3. Optional — phase 2 (not in the PoC)
 `exiftool`, `wireshark` (tshark CLI), `termshark`, `afflib`, `yara`, `binwalk`, `nikto`, `sqlmap`, `john`, `thc-hydra`, `testssl.sh`, `ssh-audit`, `fuse-sshfs`, `nfs-utils`, `cifs-utils`, `wireguard-tools`, `iperf3`, `rkhunter`, `chkrootkit`, `lshw`, console accessibility (`espeakup`, `brltty`, `void-live-audio`). With all of these the image would grow to ≈ 2.6 GiB installed.
@@ -80,7 +82,7 @@ Notes in *italics* record how phase 5 actually implemented or changed an item.
 | `wireshark-qt` | +649 MiB |
 | `nwipe` | destructive by nature |
 | `udiskie` `udisks2` `gvfs` | automounting, incompatible with the integrity policy |
-| `NetworkManager` | +61 MiB; dhcpcd/wpa_supplicant are enough |
+| `NetworkManager` | +61 MiB; dhcpcd/wpa_supplicant are enough *(brought in by D17 after real-hardware use)* |
 | `d77run` | GTK4, +369 MiB; `dmenu`/`wmenu`/Utumno's launcher are enough |
 | `ollama`, `calamares`, `sddm`, `plymouth`, `pipewire` | no role in the PoC |
 | `orca` | +373 MiB; graphical accessibility deferred |

@@ -102,7 +102,9 @@ PKGS_RECOVERY="ddrescue testdisk partclone fsarchiver"
 PKGS_FS="e2fsprogs xfsprogs btrfs-progs dosfstools exfatprogs ntfs-3g f2fs-tools mtools"
 PKGS_VOLUMES="cryptsetup lvm2 mdadm"
 PKGS_BOOT="efibootmgr efivar os-prober"
-PKGS_NET="iproute2 iputils dhcpcd wpa_supplicant openssh curl rsync"
+# D17: NetworkManager (nmtui) manages the network; dhcpcd stays installed
+# for manual use but is no longer started at boot.
+PKGS_NET="iproute2 iputils dhcpcd wpa_supplicant NetworkManager openssh curl rsync"
 PKGS_NETDIAG="tcpdump nmap traceroute mtr ldns openbsd-netcat socat arp-scan"
 PKGS_FORENSICS="dcfldd libewf sleuthkit foremost"
 PKGS_HW="dmidecode pciutils usbutils hwinfo chntpw f3 lynis acpid"
@@ -115,10 +117,31 @@ PKGS_WAYLAND="mesa-dri wasp utumno qsd77 quickshell matugen wmenu alacritty duns
 PKGS_LOGIN="greetd dwl"
 # d77 tools: Kantele (settings GUI for pwm and wasp).
 PKGS_D77TOOLS="kantele"
+# D17: desktop basics asked for after the first tests on real hardware.
+# feh sets pwm's wallpaper; mullvad-browser comes from the d77void repo.
+PKGS_DESKTOP="mullvad-browser font-hack-ttf feh conky papirus-icon-theme ranger"
+# D18 group A (docs/PACKAGE_INVENTORY.md): what the sessions need to work as
+# in d77void. upower: Utumno's battery; pipewire & co: sound and the volume
+# keys (pactl); mate-polkit: password prompts for graphical programs.
+PKGS_DESKTOP="$PKGS_DESKTOP upower pipewire wireplumber alsa-pipewire pulseaudio-utils pavucontrol mate-polkit"
+PKGS_DESKTOP="$PKGS_DESKTOP nerd-fonts-symbols-ttf noto-fonts-emoji font-awesome6 arc-theme qt6ct nwg-look"
+PKGS_DESKTOP="$PKGS_DESKTOP xdg-desktop-portal xdg-desktop-portal-gtk xdg-desktop-portal-wlr qt5-wayland xdg-utils xdg-user-dirs"
+PKGS_DESKTOP="$PKGS_DESKTOP htop inxi bash-completion nano unzip wget bc zathura zathura-pdf-poppler"
+# As in d77void's pwm startup: screen lock (pwm's super+t runs slock, which
+# d77-slock provides), lock after 5 idle minutes, and a compositor.
+PKGS_DESKTOP="$PKGS_DESKTOP d77-slock xautolock xcompmgr"
+# D18 group B: Grml-like tools. Not dmraid (runit's 03-filesystems.sh runs
+# "dmraid -i -ay" at boot whenever it is installed) and not bcache-tools (its
+# udev rule and dracut module register bcache devices on their own).
+PKGS_TOOLS="mc ncdu tree screen psmisc sysstat iotop moreutils mbuffer"
+PKGS_TOOLS="$PKGS_TOOLS lshw lm_sensors memtester stress fio cpuid cpupower acpi"
+PKGS_TOOLS="$PKGS_TOOLS dislocker xmount afflib extundelete gpart jfsutils xfsdump fuse-exfat"
+PKGS_TOOLS="$PKGS_TOOLS bind-utils whois ipcalc iftop nethogs iperf3 net-tools wireguard-tools openvpn lftp links"
+PKGS_TOOLS="$PKGS_TOOLS fuse-sshfs nfs-utils cifs-utils hexedit ltrace binwalk zip cabextract lz4 lzop unp minicom tio kexec-tools gnupg"
 
 # acpi-gpe-guard is not a package: its service dir is placed by
 # _include_base and linked into runsvdir there, not via -S.
-SERVICES="acpid dbus polkitd greetd dhcpcd chronyd"
+SERVICES="acpid dbus polkitd greetd NetworkManager chronyd"
 
 # ── Include directory (overlay) ────────────────────────────────────────
 
@@ -142,6 +165,8 @@ _include_base() {
 	cp -r ./wasp/skel/. "$INCLUDEDIR"/etc/skel/
 	install -Dm755 ./common/d77orphaned/pwm-startup.sh \
 		"$INCLUDEDIR"/etc/d77orphaned/pwm-startup.sh
+	install -Dm755 ./common/d77orphaned/wasp-wallpaper.sh \
+		"$INCLUDEDIR"/etc/d77orphaned/wasp-wallpaper.sh
 	# greetd sources /etc/profile (and so profile.d) before each session.
 	install -Dm644 ./common/profile.d/d77orphaned-wlr.sh \
 		"$INCLUDEDIR"/etc/profile.d/d77orphaned-wlr.sh
@@ -175,6 +200,37 @@ _include_integrity() {
 	install -Dm644 ./common/hosts "$INCLUDEDIR"/etc/hosts
 }
 
+# PipeWire as in d77void's setup_pipewire: pipewire starts wireplumber and
+# pipewire-pulse itself, and ALSA programs go through it. Both sessions
+# start pipewire (pwm-startup.sh, wasp's config.lua).
+_include_audio() {
+	mkdir -p "$INCLUDEDIR"/etc/pipewire/pipewire.conf.d "$INCLUDEDIR"/etc/alsa/conf.d
+	ln -sf /usr/share/examples/wireplumber/10-wireplumber.conf "$INCLUDEDIR"/etc/pipewire/pipewire.conf.d/
+	ln -sf /usr/share/examples/pipewire/20-pipewire-pulse.conf "$INCLUDEDIR"/etc/pipewire/pipewire.conf.d/
+	ln -sf /usr/share/alsa/alsa.conf.d/50-pipewire.conf "$INCLUDEDIR"/etc/alsa/conf.d/
+	ln -sf /usr/share/alsa/alsa.conf.d/99-pipewire-default.conf "$INCLUDEDIR"/etc/alsa/conf.d/
+}
+
+# The user documentation (d77void/orphaned-docs), readable without a network:
+# the mdBook site in /usr/share/doc/d77orphaned/html and its Markdown sources
+# in .../md, opened with d77-docs. Built from a checkout of orphaned-docs next
+# to this repository (or D77_DOCS_DIR) with mdbook on the build host. Without
+# either, the image is built without the documentation, with a warning.
+_include_docs() {
+	local docs="${D77_DOCS_DIR:-../orphaned-docs}" dest="$INCLUDEDIR"/usr/share/doc/d77orphaned
+	install -Dm755 ./common/d77orphaned/d77-docs "$INCLUDEDIR"/usr/bin/d77-docs
+	install -Dm644 ./common/d77orphaned/d77-docs.desktop "$INCLUDEDIR"/usr/share/applications/d77-docs.desktop
+	if [ ! -f "$docs/book.toml" ] || ! command -v mdbook >/dev/null 2>&1; then
+		echo "$PROGNAME: WARNING: no documentation in the image (need $docs and mdbook)" >&2
+		return 0
+	fi
+	docs=$(cd "$docs" && pwd -P)
+	mdbook build "$docs" -d "$dest/html" >/dev/null || { echo "$PROGNAME: mdbook build failed" >&2; exit 1; }
+	mkdir -p "$dest/md"
+	cp -r "$docs/src/." "$dest/md/"
+	echo "$PROGNAME: documentation from $docs ($(git -C "$docs" rev-parse --short HEAD 2>/dev/null || echo unknown)) added to the image"
+}
+
 # greetd + the quickshell-d77 greeter under a disposable dwl (as in d77void's
 # include_greetd), with an autologin [initial_session] into pwm.
 include_greetd() {
@@ -189,11 +245,13 @@ build_variant() {
 	# postsetup.sh writes the SOURCES text next to the ISO as well.
 	export D77_SOURCES_OUT="$(pwd -P)/${IMG%.iso}.SOURCES.txt"
 
-	PKGS="$PKGS_DISKS $PKGS_RECOVERY $PKGS_FS $PKGS_VOLUMES $PKGS_BOOT $PKGS_NET $PKGS_NETDIAG $PKGS_FORENSICS $PKGS_HW $PKGS_OPS $PKGS_X11 $PKGS_WAYLAND $PKGS_LOGIN $PKGS_D77TOOLS"
+	PKGS="$PKGS_DISKS $PKGS_RECOVERY $PKGS_FS $PKGS_VOLUMES $PKGS_BOOT $PKGS_NET $PKGS_NETDIAG $PKGS_FORENSICS $PKGS_HW $PKGS_OPS $PKGS_X11 $PKGS_WAYLAND $PKGS_LOGIN $PKGS_D77TOOLS $PKGS_DESKTOP $PKGS_TOOLS"
 
 	_include_identity
 	_include_base
 	_include_integrity
+	_include_audio
+	_include_docs
 	include_greetd
 
 	# shellcheck disable=SC2086

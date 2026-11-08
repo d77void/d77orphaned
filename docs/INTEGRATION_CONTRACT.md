@@ -63,6 +63,8 @@ These questions require testing; **do not design a final layout or formatting to
 | d77orphaned | Manifest, overlay, branding, tests, documentation, future specific scripts | A permanent fork of the whole d77void infrastructure |
 | User's persistent partition | Personal data, scripts and configs, optionally encrypted | A replacement of the live root or a mandatory boot assumption |
 
+> **Note (2026-11-08):** the only change made in a shared component during phase 5 was a bug fix in pwm itself (D15: a startup race that could kill pwm), released as pwm 0.6.8 for every user, with the user's authorization. Everything specific to d77orphaned lives in this repository (overlay, startup scripts, configuration).
+
 ## Change gate
 
 **All d77orphaned commits are made only in the `d77orphaned` repository.** If a need to change `d77void`, `d77-immutable` or another project ever arises, it is a separate request, outside the scope of this plan, subject to explicit authorization. Never make that change as a side effect of the PoC.
