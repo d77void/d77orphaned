@@ -138,6 +138,9 @@ PKGS_TOOLS="$PKGS_TOOLS lshw lm_sensors memtester stress fio cpuid cpupower acpi
 PKGS_TOOLS="$PKGS_TOOLS dislocker xmount afflib extundelete gpart jfsutils xfsdump fuse-exfat"
 PKGS_TOOLS="$PKGS_TOOLS bind-utils whois ipcalc iftop nethogs iperf3 net-tools wireguard-tools openvpn lftp links"
 PKGS_TOOLS="$PKGS_TOOLS fuse-sshfs nfs-utils cifs-utils hexedit ltrace binwalk zip cabextract lz4 lzop unp minicom tio kexec-tools gnupg"
+# D24: secure erasure. Nothing runs them on its own; nwipe refuses devices in
+# use, which includes the boot stick.
+PKGS_TOOLS="$PKGS_TOOLS nwipe parallel"
 
 # acpi-gpe-guard is not a package: its service dir is placed by
 # _include_base and linked into runsvdir there, not via -S.

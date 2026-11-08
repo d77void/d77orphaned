@@ -80,7 +80,7 @@ Notes in *italics* record how phase 5 actually implemented or changed an item.
 | `zfs` | DKMS + compiler, +559 MiB |
 | `hashcat` | no GPU in the live system; `john` covers the function |
 | `wireshark-qt` | +649 MiB |
-| `nwipe` | destructive by nature |
+| `nwipe` | destructive by nature *(brought in by D24: secure erasure, only when the user runs it)* |
 | `udiskie` `udisks2` `gvfs` | automounting, incompatible with the integrity policy |
 | `NetworkManager` | +61 MiB; dhcpcd/wpa_supplicant are enough *(brought in by D17 after real-hardware use)* |
 | `d77run` | GTK4, +369 MiB; `dmenu`/`wmenu`/Utumno's launcher are enough |

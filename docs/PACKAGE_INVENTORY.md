@@ -147,7 +147,7 @@ Sizes are installed sizes of the package alone, not counting dependencies.
 
 | Packages | Reason |
 |---|---|
-| `nwipe` `srm` `wipe` | destructive by nature |
+| `srm` `wipe` | destructive by nature (`nwipe` joined by D24) |
 | `udisks2` `udiskie` `gvfs` | automounting (integrity policy) |
 | `fwupd` | writes device firmware; not a default in a forensic ISO |
 | `gcc` (234 MB), `edk2-ovmf` (154 MB), `qemu` | size / out of scope |
