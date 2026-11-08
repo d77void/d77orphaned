@@ -20,7 +20,7 @@ d77orphaned is a **live recovery, diagnostics and analysis system** based on **V
 - Two optional environments on the same ISO: **pwm (X11)** and **wasp (Wayland) + Utumno**. Utumno is Wayland-only and must not be proposed for pwm/X11.
 - Reuse **existing** shells, compositors, tools and packages from the d77 ecosystem, without changing the general-purpose projects to serve this ISO.
 - Existing launcher to open applications. **No** `forensics.qml` dashboard, new qsd77 integrations or special panels in the first proof of concept.
-- **Optional, data-only** persistence on a separate partition; no persistent overlay of `/`, no full package persistence. Prefer LUKS2 when sensitive data is involved.
+- **Optional** persistence of data and selected settings on a separate LUKS2 partition (`d77-persist`, D22); no persistent overlay of `/`, no full package persistence.
 - No destructive operation on target disks without explicit choice and confirmation; reading is not automatically the same as forensic preservation.
 
 ## Mandatory work order

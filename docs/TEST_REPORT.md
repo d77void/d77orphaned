@@ -99,9 +99,20 @@ The user booted the ISO on real hardware and reported: missing desktop basics (b
 
 **Rebuilt the same day** with conky on the left and the documentation inside the image: `d77orphaned-live-x86_64-20261108.iso`, 2,063,036,416 bytes, sha256 `1d45daf915a1793b985dbeecffa7c73173ebef7858f680f8ee21c33c4d7602bf`, documentation from orphaned-docs `69574e7`; host `grub.cfg` unchanged. In a VM: `/usr/share/doc/d77orphaned/{html,md,SOURCES.txt}` present, `links -dump` reads the pages on the console, and `d77-docs` in the pwm session opens the local site in Mullvad Browser without a network (**PASS**). Written to the user's USB stick for real-hardware testing.
 
+## Persistence (2026-11-08, D22)
+
+`d77-persist`, tested with `tests/persist-test.py`: QEMU with KVM, the ISO written to a 4 GiB image attached as a USB stick, and a second disk that also has a partition named `d77-data`.
+
+- **ISO:** `d77orphaned-live-x86_64-20261108.iso`, 2,062,475,264 bytes, sha256 `ad5bcff3bbbba3f94cfb1fb4f4945741664a8f3e917c694603e95a1a8874d600`, documentation from orphaned-docs `f18221f`; host `grub.cfg` unchanged. Written to the user's USB stick, verified by hash.
+- **Result: 21/21 checks passed.** A wrong answer at the confirmation writes nothing; `create` makes a LUKS2 partition on the boot device only, with a valid GPT; `close` locks it and puts the settings back; a wrong passphrase is refused; after a reboot it stays locked and unmounted; `open` brings back the files and settings (including a NetworkManager connection, which `nmcli` lists); `--data-only` leaves the settings alone; the live user can use it through `sudo`; **the second disk's hash did not change**.
+- **Boot with the new partition table: PASS (VM).** SeaBIOS and OVMF both boot the stick to the pwm session after `create` (screenshots).
+- **Power cut with the partition open (VM):** existing files and a file written with `sync` survive; a file written without `sync`, though listed by `ls`, is lost; the file system mounts normally. On real hardware (the Toshiba, forced power-off during the black screen below) nothing already saved was lost.
+- **Real hardware:** works, according to the user, including reopening after a deliberately failed close. Not confirmed separately: wasp and Utumno picking up restored settings at the next login.
+
 ## Open
 
-- **T12 real hardware:** in progress on the user's side. Confirmed working on real hardware (user, 2026-11-08): boot, both sessions, Wi-Fi with NetworkManager, wallpaper switching in Utumno, the offline documentation (`d77-docs`), battery, conky, screen lock, and theme change and keyboard layout in Kantele. Still to test there: sound, and the `nomodeset` and console-only entries.
+- **T12 real hardware:** confirmed by the user (2026-11-08): boot, both sessions, Wi-Fi with NetworkManager, wallpaper switching in Utumno, the offline documentation (`d77-docs`), battery, sound, conky, screen lock, theme change and keyboard layout in Kantele, the console-only entry, and persistence (`d77-persist`, including reopening after a deliberately failed close). The `nomodeset` entry boots to pwm, **but see the next item**.
+- **`nomodeset`, black screen after leaving pwm (real hardware, open):** on a Toshiba with legacy BIOS, leaving pwm ends in a black screen; `Ctrl+Alt+F2` and the other TTYs do not bring anything back, and only the power button gets out of it. In QEMU with SeaBIOS the text login (`agreety`) appears as it should. Xorg's vesa driver asks the machine's video BIOS to restore the mode on exit, which may be the difference (unverified), and whether the machine hangs or only the display is lost is unknown. `nomodeset` under UEFI is untested: a VM with OVMF and a direct kernel boot did not reach the login.
 - **MD RAID read-only assembly** (`mdadm --assemble --readonly`): documented but not tested.
 - **Phase-5 T6 case** (wasp login ending in pwm): not reproduced in 9 runs with greetd logging to `/var/log/greetd` (the harness now sets that up). Treated as unexplained, not fixed.
 - **Cosmetic:**

@@ -46,6 +46,8 @@ Goal: keep documentation, scripts, configuration, personal tools and possibly pr
 - Rewriting/updating the live image must preserve the partition **only if the writing method guarantees it and this has been tested**. A `dd` of the ISO to the whole device can destroy the partition table and the data; do not promise safe updates without a dedicated workflow.
 - A persistent volume **is not a backup**; advise external copies.
 
+*Implemented in phase 5 as `d77-persist` (D22). Answers to the questions below: partition added after the ISO's own on the written stick (GPT backup moved with `sgdisk -e`); booted with BIOS and UEFI in a VM; no reserved room or image updates (a new ISO erases the partition); LUKS2 + ext4, all the free space, mounted at `/mnt/d77-data` by hand. Settings are bind-mounted when opened, except with `--data-only`.*
+
 ### Open questions
 
 - How to prepare the stick (hybrid image, own installer, copying files to a boot partition, etc.).

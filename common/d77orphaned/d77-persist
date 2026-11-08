@@ -1,0 +1,260 @@
+#!/bin/bash
+# d77-persist — optional, encrypted persistence on the d77orphaned USB stick.
+#
+#   d77-persist create               add an encrypted data partition to the stick
+#   d77-persist open [--data-only]   unlock it, mount it at /mnt/d77-data and
+#                                    bring back the saved settings
+#   d77-persist close                put the settings back and lock it
+#   d77-persist status               what is there and what is open
+#   d77-persist format               finish a "create" interrupted before encrypting
+#
+# Nothing here runs at boot: without this command the system never looks at
+# the partition, and it boots the same with or without one. It only ever acts
+# on the device the system booted from, never on the computer's disks. LUKS2 is
+# not optional. The partition does not survive writing a new ISO to the stick.
+set -u
+
+PARTLABEL=d77-data
+MAPPER=d77-data
+MOUNTPOINT=/mnt/d77-data
+ISO_LABEL=D77ORPHANED
+MIN_FREE_MIB=256
+STORE=.d77-settings
+
+die() { echo "d77-persist: $*" >&2; exit 1; }
+
+live_user() {
+	local u="${SUDO_USER:-}"
+	if [ -z "$u" ] || [ "$u" = root ]; then
+		u=$(sed -n 's/^USERNAME=//p' /etc/default/live.conf 2>/dev/null)
+	fi
+	echo "${u:-anon}"
+}
+
+# The directories kept with "open": target path, one per line. Everything else
+# in the system stays as it is in the ISO.
+settings_dirs() {
+	local home
+	home=$(getent passwd "$(live_user)" | cut -d: -f6)
+	printf '%s\n' \
+		/etc/NetworkManager/system-connections \
+		"$home/.config/pwm" \
+		"$home/.config/wasp" \
+		"$home/.config/kantele" \
+		"$home/.config/d77" \
+		"$home/.cache/d77" \
+		"$home/.cache/quickshell/wallpaper" \
+		"$home/.ssh"
+}
+
+# The whole device this system booted from. Prefer what the live system has
+# mounted; a boot with rd.live.ram no longer has it mounted, so fall back to the
+# ISO's label, and refuse if that is ambiguous (e.g. a second d77orphaned stick).
+boot_device() {
+	local src devs
+	src=$(findmnt -no SOURCE /run/initramfs/live 2>/dev/null)
+	if [ -n "$src" ]; then
+		devs=$(lsblk -no PKNAME "$src" 2>/dev/null | head -n1)
+		[ -n "$devs" ] || devs=${src#/dev/}
+	else
+		devs=$(blkid -t LABEL="$ISO_LABEL" -o device | while read -r d; do
+			p=$(lsblk -no PKNAME "$d" 2>/dev/null | head -n1)
+			echo "${p:-${d#/dev/}}"
+		done | sort -u)
+	fi
+	[ -n "$devs" ] || die "cannot find the device this system booted from"
+	[ "$(echo "$devs" | wc -l)" -eq 1 ] || die "more than one d77orphaned device found: $(echo $devs). Remove the others."
+	echo "/dev/$devs"
+}
+
+data_partition() {
+	lsblk -rnpo NAME,PARTLABEL "$1" | awk -v l="$PARTLABEL" '$2 == l { print $1; exit }'
+}
+
+is_open() { [ -e "/dev/mapper/$MAPPER" ]; }
+
+need_root() {
+	[ "$(id -u)" -eq 0 ] || exec sudo "$0" "$@"
+}
+
+# Bytes after the last partition of a device.
+free_bytes() {
+	local dev=$1 size end
+	size=$(blockdev --getsize64 "$dev")
+	end=$(lsblk -bnro START,SIZE "$dev" | awk 'NF == 2 && $1 != "" { e = $1 * 512 + $2; if (e > m) m = e } END { printf "%.0f", m }')
+	echo $((size - end))
+}
+
+cmd_create() {
+	local dev name part free_mib answer
+	dev=$(boot_device) || exit 1
+	name=${dev#/dev/}
+	[ "$(lsblk -dno TYPE "$dev")" = disk ] || die "$dev is not a writable disk (booted from a CD or DVD?)"
+	[ -z "$(data_partition "$dev")" ] || die "$dev already has a persistence partition; use: d77-persist open"
+	free_mib=$(($(free_bytes "$dev") / 1024 / 1024))
+	[ "$free_mib" -ge "$MIN_FREE_MIB" ] || die "only $free_mib MiB free on $dev; at least $MIN_FREE_MIB MiB are needed"
+
+	echo "The system booted from this device:"
+	echo
+	lsblk -o NAME,SIZE,TYPE,TRAN,MODEL,LABEL "$dev"
+	echo
+	echo "This adds one encrypted partition of $free_mib MiB in the free space after"
+	echo "the partitions above. They are not changed, and neither is any other disk."
+	echo "Writing a new ISO to this device later erases the partition and its data."
+	echo
+	read -r -p "To go on, type the device name ($name): " answer
+	[ "$answer" = "$name" ] || die "cancelled, nothing was written"
+
+	# The GPT of an image written with dd has its backup at the end of the
+	# image, not of the device; sgdisk cannot use the free space until it moves.
+	sgdisk -e "$dev" >/dev/null || die "could not update the partition table of $dev"
+	sgdisk -n 0:0:0 -t 0:8309 -c "0:$PARTLABEL" "$dev" >/dev/null || die "could not create the partition"
+	# The stick is in use, so the kernel cannot re-read the whole table.
+	partx -a "$dev" 2>/dev/null
+	udevadm settle
+	part=$(data_partition "$dev")
+	[ -n "$part" ] && [ -b "$part" ] || die "the partition was created, but is not visible yet: reboot and run: d77-persist format"
+	format_partition "$part"
+}
+
+# Encrypt and format a new persistence partition.
+format_partition() {
+	local part=$1
+	echo
+	echo "Choose a passphrase. It cannot be recovered: without it the data is lost."
+	cryptsetup luksFormat -q --type luks2 --verify-passphrase "$part" || die "encryption failed"
+	echo "Unlock it once more to finish:"
+	cryptsetup open "$part" "$MAPPER" || die "could not unlock the new partition"
+	mkfs.ext4 -q -L "$PARTLABEL" "/dev/mapper/$MAPPER" || die "could not format the new partition"
+	mount_data
+	echo "Done. Your files go in $MOUNTPOINT."
+	apply_settings
+}
+
+cmd_format() {
+	local dev part
+	dev=$(boot_device) || exit 1
+	part=$(data_partition "$dev")
+	[ -n "$part" ] || die "no persistence partition on $dev; use: d77-persist create"
+	if cryptsetup isLuks "$part"; then
+		die "$part is already encrypted; use: d77-persist open"
+	fi
+	format_partition "$part"
+}
+
+mount_data() {
+	local user
+	user=$(live_user)
+	mkdir -p "$MOUNTPOINT"
+	mount -o nosuid,nodev "/dev/mapper/$MAPPER" "$MOUNTPOINT" || die "could not mount the partition"
+	chown "$user:" "$MOUNTPOINT"
+	mkdir -p "$MOUNTPOINT/$STORE"
+	chmod 700 "$MOUNTPOINT/$STORE"
+}
+
+# Replace each settings directory with its copy on the partition. The first
+# time, that copy starts from what the session has now.
+apply_settings() {
+	local target key src user
+	user=$(live_user)
+	while read -r target; do
+		key=$(echo "${target#/}" | tr '/' '_')
+		src="$MOUNTPOINT/$STORE/$key"
+		if [ ! -d "$src" ]; then
+			if [ -d "$target" ]; then
+				cp -a "$target" "$src"
+			else
+				mkdir -p "$src"
+				case "$target" in /etc/*) ;; *) chown "$user:" "$src" ;; esac
+			fi
+		fi
+		if [ ! -d "$target" ]; then
+			# Create it, and missing parents, as the user who will use it.
+			case "$target" in
+			/etc/*) mkdir -p "$target" ;;
+			*) sudo -u "$user" mkdir -p "$target" ;;
+			esac
+		fi
+		mount --bind "$src" "$target" || echo "d77-persist: could not restore $target" >&2
+	done < <(settings_dirs)
+	[ -d "$(getent passwd "$user" | cut -d: -f6)/.ssh" ] && chmod 700 "$(getent passwd "$user" | cut -d: -f6)/.ssh"
+	reload_settings
+	echo "Saved settings are active (Wi-Fi, pwm, wasp, Kantele, wallpaper, SSH keys)."
+	echo "Run 'd77-persist close' before removing the stick."
+}
+
+# Let running programs see the settings that just came back.
+reload_settings() {
+	command -v nmcli >/dev/null 2>&1 && nmcli connection reload >/dev/null 2>&1
+	# pwm re-reads its configuration and theme on SIGHUP.
+	pkill -HUP -x pwm 2>/dev/null
+	return 0
+}
+
+cmd_open() {
+	local dev part data_only=
+	[ "${1:-}" = --data-only ] && data_only=yes
+	is_open && die "already open, at $MOUNTPOINT"
+	dev=$(boot_device) || exit 1
+	part=$(data_partition "$dev")
+	[ -n "$part" ] || die "no persistence partition on $dev; use: d77-persist create"
+	cryptsetup open "$part" "$MAPPER" || die "could not unlock $part"
+	# A stick pulled out without closing leaves the journal to replay.
+	e2fsck -p "/dev/mapper/$MAPPER" >/dev/null 2>&1
+	if [ $? -ge 4 ]; then
+		cryptsetup close "$MAPPER"
+		die "the file system needs repair: unlock it by hand and run e2fsck"
+	fi
+	mount_data
+	echo "Open: your files are in $MOUNTPOINT."
+	[ -n "$data_only" ] || apply_settings
+}
+
+cmd_close() {
+	local target failed=
+	is_open || die "not open"
+	# Settings first (in reverse order), then the partition.
+	while read -r target; do
+		if mountpoint -q "$target"; then
+			umount "$target" || { echo "d77-persist: $target is in use" >&2; failed=yes; }
+		fi
+	done < <(settings_dirs | tac)
+	sync
+	if [ -n "$failed" ] || ! umount "$MOUNTPOINT"; then
+		echo "d77-persist: still in use; see what holds it with: lsof $MOUNTPOINT" >&2
+		exit 1
+	fi
+	cryptsetup close "$MAPPER" || die "could not lock the partition"
+	reload_settings
+	echo "Closed: the partition is locked and it is safe to remove the stick."
+}
+
+cmd_status() {
+	local dev part
+	dev=$(boot_device) || exit 1
+	part=$(data_partition "$dev")
+	echo "Boot device: $dev"
+	if [ -z "$part" ]; then
+		echo "Persistence: none ($(($(free_bytes "$dev") / 1024 / 1024)) MiB free; create it with: d77-persist create)"
+		return 0
+	fi
+	echo "Partition:   $part ($(lsblk -dno SIZE "$part"))"
+	if is_open; then
+		echo "State:       open at $MOUNTPOINT"
+		df -h --output=used,avail "$MOUNTPOINT" | tail -n1 | awk '{print "Space:       " $1 " used, " $2 " free"}'
+	else
+		echo "State:       locked"
+	fi
+}
+
+case "${1:-}" in
+create | open | close | format) need_root "$@" ;;
+status) need_root "$@" ;;
+*)
+	sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'
+	exit 2
+	;;
+esac
+cmd=$1
+shift
+"cmd_$cmd" "$@"
