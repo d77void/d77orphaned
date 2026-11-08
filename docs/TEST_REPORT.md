@@ -135,12 +135,15 @@ Published to the `ISO-x86_64` folder on SourceForge as a prototype, with its `.i
 - **`--autonuke` with no device: PASS.** It wiped none of these: the boot stick (hash unchanged; "IN USE"; also with the RAM boot entry, where it stays mounted), a disk given to `--exclude` (hash unchanged) and a mounted disk (read-only mount, hash unchanged while mounted and after, file still readable). A first run reported the mounted disk as changed: that test mounted it read-write, and `umount` itself writes to ext4.
 - **`parallel`: PASS**, including `--dry-run`.
 - **T7: PASS** (2007 executables, 0 failures). **T8: PASS** (8 disks unchanged).
-- **Not tested:** `hdparm` security erase, `nvme sanitize`/`format` and `sg_sanitize` on real drives (only their options were checked against the tools in the ISO); `nwipe` on real hardware.
+- **Real hardware (user):** `nwipe` works on the Toshiba with a disposable stick. Its screen is unreadable in pwm's `st` (Dracula colours and transparency compiled into `d77-st`) and readable in wasp's `alacritty`.
+- **Not tested:** `hdparm` security erase, `nvme sanitize`/`format` and `sg_sanitize` on real drives (only their options were checked against the tools in the ISO).
 
 ## Open
 
 - **T12 real hardware:** done by the user (2026-11-08), with no open failures: boot, both sessions, Wi-Fi with NetworkManager, wallpaper switching, offline documentation, battery, sound, conky, screen lock, theme and keyboard in Kantele, the console-only entry, `nomodeset` (after D23), TTY switching and logout on a normal boot, and persistence. **Machines:** the legacy BIOS Toshiba is the only one on record; the T480s with Libreboot from the original plan is not confirmed as tested.
 - **`nomodeset` under UEFI:** untested. A VM with OVMF and a direct kernel boot did not reach the login.
+- **Sony Vaio (Core 2 Duo P8400, old nVidia):** intermittent segmentation faults in `su` and `sudo nwipe`, then `SQUASHFS error: Unable to read page` and `exec: dwl: Input/output error`: the system is failing to read the stick, which works on the Toshiba and was verified by hash. The USB port, power or memory on that laptop are suspected; not confirmed. Not an ISO defect as far as is known. Another port was being tried.
+- **ThinkPad X61:** planned by the user, not tested yet.
 - **MD RAID read-only assembly** (`mdadm --assemble --readonly`): documented but not tested.
 - **Phase-5 T6 case** (wasp login ending in pwm): not reproduced in 9 runs with greetd logging to `/var/log/greetd` (the harness now sets that up). Treated as unexplained, not fixed.
 - **Cosmetic:**
