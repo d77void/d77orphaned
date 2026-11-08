@@ -101,7 +101,7 @@ The user booted the ISO on real hardware and reported: missing desktop basics (b
 
 ## Open
 
-- **T12 real hardware:** started by the user on 2026-11-08 (boot, both sessions, Wi-Fi with NetworkManager, wallpaper switching). Still to confirm there: the Kantele keyboard layout, the `nomodeset` and console-only entries, sound and battery.
+- **T12 real hardware:** in progress on the user's side. Confirmed working on real hardware (user, 2026-11-08): boot, both sessions, Wi-Fi with NetworkManager, wallpaper switching in Utumno, the offline documentation (`d77-docs`), battery, conky, screen lock, and theme change and keyboard layout in Kantele. Still to test there: sound, and the `nomodeset` and console-only entries.
 - **MD RAID read-only assembly** (`mdadm --assemble --readonly`): documented but not tested.
 - **Phase-5 T6 case** (wasp login ending in pwm): not reproduced in 9 runs with greetd logging to `/var/log/greetd` (the harness now sets that up). Treated as unexplained, not fixed.
 - **Cosmetic:**
