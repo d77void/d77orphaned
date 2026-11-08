@@ -118,11 +118,12 @@ Fix: with `nomodeset`, X no longer ends on its own (`pwm-session.sh` restarts pw
 - **ISO:** `d77orphaned-live-x86_64-20261108.iso`, 2,063,034,368 bytes, sha256 `98b05ca43a8661c01d2125c547aa58947f6c12863a4877578f26ab91f1549b7d`; host `grub.cfg` unchanged.
 - **VM, `nomodeset`: PASS.** Killing pwm starts a new pwm under the same Xorg, with no background program started twice; `Ctrl+Alt+F2` stays on VT 7; `loginctl poweroff` (what the menu runs) powers off. It refuses while another user is logged in (root on the test's serial console), and pwm's menu shows no message when that happens.
 - **VM, normal boot: unchanged.** `Ctrl+Alt+F2` switches, and leaving pwm brings up the greeter.
+- **Real hardware (the Toshiba, user, 2026-11-08): PASS.** No more black screen: `logout` in pwm's menu appears to do nothing (pwm restarts at once under the same X, and windows stay), `Ctrl+Alt+F2` does nothing, and `reboot` and `shutdown` work.
 
 ## Open
 
 - **T12 real hardware:** confirmed by the user (2026-11-08): boot, both sessions, Wi-Fi with NetworkManager, wallpaper switching in Utumno, the offline documentation (`d77-docs`), battery, sound, conky, screen lock, theme change and keyboard layout in Kantele, the console-only entry, and persistence (`d77-persist`, including reopening after a deliberately failed close). The `nomodeset` entry boots to pwm, **but see the next item**.
-- **`nomodeset` on real hardware:** the fix below still has to be confirmed on the Toshiba. `nomodeset` under UEFI is untested: a VM with OVMF and a direct kernel boot did not reach the login.
+- **`nomodeset` under UEFI:** untested. A VM with OVMF and a direct kernel boot did not reach the login.
 - **MD RAID read-only assembly** (`mdadm --assemble --readonly`): documented but not tested.
 - **Phase-5 T6 case** (wasp login ending in pwm): not reproduced in 9 runs with greetd logging to `/var/log/greetd` (the harness now sets that up). Treated as unexplained, not fixed.
 - **Cosmetic:**
