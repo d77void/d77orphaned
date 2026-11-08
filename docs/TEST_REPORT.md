@@ -97,7 +97,7 @@ The user booted the ISO on real hardware and reported: missing desktop basics (b
 11. **pwm's startup script lost the wallpaper, conky and lock.** The minimal script written to avoid `udiskie` kept only `dunst`. Fix (D19), including starting each program once, since pwm re-runs the script on every theme change.
 12. **Conky unreadable** (white text on pwm's light default wallpaper) and covering the wallpaper's kitten. Dark panel, bottom left.
 
-Not yet built into an ISO and tested (made after the image above): conky on the left, and the documentation inside the ISO (`d77-docs`).
+**Rebuilt the same day** with conky on the left and the documentation inside the image: `d77orphaned-live-x86_64-20261108.iso`, 2,063,036,416 bytes, sha256 `1d45daf915a1793b985dbeecffa7c73173ebef7858f680f8ee21c33c4d7602bf`, documentation from orphaned-docs `69574e7`; host `grub.cfg` unchanged. In a VM: `/usr/share/doc/d77orphaned/{html,md,SOURCES.txt}` present, `links -dump` reads the pages on the console, and `d77-docs` in the pwm session opens the local site in Mullvad Browser without a network (**PASS**). Written to the user's USB stick for real-hardware testing.
 
 ## Open
 
@@ -107,4 +107,3 @@ Not yet built into an ISO and tested (made after the image above): conky on the 
 - **Cosmetic:**
   - on wasp with software rendering, the background shows leftovers of the greeter, and there is a black block left of Utumno's bar;
 - **Size:** the ISO is 2.06 GB (1.6 GiB before D17/D18), well above the gate's 0.9–1.1 GiB estimate; Mullvad Browser (350 MB installed) and Papirus (117 MB) are the largest additions.
-- **Next build:** conky on the left and the built-in documentation, then a short re-test.
