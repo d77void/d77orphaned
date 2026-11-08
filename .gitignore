@@ -2,6 +2,7 @@
 *.xz
 *.iso
 *.SOURCES.txt
+*.sha256
 *.raw
 *.tar.gz
 *.box

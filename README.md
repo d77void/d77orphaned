@@ -2,6 +2,10 @@
 
 > **Status: PROTOTYPE (phase 5).** Gate approved on 2026-11-07 (`docs/APPROVAL_GATE.md`). Tested in QEMU in three rounds and, since 2026-11-08, used on real hardware by the user; results in `docs/TEST_REPORT.md`, nothing beyond what is listed there has been tested. User documentation: <https://d77void.github.io/orphaned-docs/> (also inside the ISO: `d77-docs`).
 
+## Download
+
+Prototype. ISO, hash and source list: [ISO-x86_64 on SourceForge](https://sourceforge.net/projects/d77void/files/ISO-x86_64/); how to check it and write it to a USB stick: [Download](https://d77void.github.io/orphaned-docs/getting-started/download.html).
+
 ## Vision
 
 d77orphaned is a **live recovery, diagnostics and analysis system** based on **Void Linux**, with a small, justified selection of security/pentesting tools for authorized use. Conceptual reference: **more Grml than Kali**. It is not an independent distribution, a general-purpose d77void variant, or a replacement for Kali/Parrot/BlackArch.
