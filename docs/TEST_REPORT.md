@@ -107,7 +107,7 @@ The user booted the ISO on real hardware and reported: missing desktop basics (b
 - **Result: 21/21 checks passed.** A wrong answer at the confirmation writes nothing; `create` makes a LUKS2 partition on the boot device only, with a valid GPT; `close` locks it and puts the settings back; a wrong passphrase is refused; after a reboot it stays locked and unmounted; `open` brings back the files and settings (including a NetworkManager connection, which `nmcli` lists); `--data-only` leaves the settings alone; the live user can use it through `sudo`; **the second disk's hash did not change**.
 - **Boot with the new partition table: PASS (VM).** SeaBIOS and OVMF both boot the stick to the pwm session after `create` (screenshots).
 - **Power cut with the partition open (VM):** existing files and a file written with `sync` survive; a file written without `sync`, though listed by `ls`, is lost; the file system mounts normally. On real hardware (the Toshiba, forced power-off during the black screen below) nothing already saved was lost.
-- **Real hardware:** works, according to the user, including reopening after a deliberately failed close. Not confirmed separately: wasp and Utumno picking up restored settings at the next login.
+- **Real hardware:** works, according to the user, including reopening after a deliberately failed close. After `open`, pwm's theme and the Wi-Fi come back at once, and wasp and Utumno pick up their settings at the next login (user, normal boot).
 
 ## `nomodeset`: black screen on a legacy BIOS machine (2026-11-08, D23)
 
@@ -122,7 +122,7 @@ Fix: with `nomodeset`, X no longer ends on its own (`pwm-session.sh` restarts pw
 
 ## Open
 
-- **T12 real hardware:** confirmed by the user (2026-11-08): boot, both sessions, Wi-Fi with NetworkManager, wallpaper switching in Utumno, the offline documentation (`d77-docs`), battery, sound, conky, screen lock, theme change and keyboard layout in Kantele, the console-only entry, and persistence (`d77-persist`, including reopening after a deliberately failed close). The `nomodeset` entry boots to pwm, **but see the next item**.
+- **T12 real hardware:** done by the user (2026-11-08), with no open failures: boot, both sessions, Wi-Fi with NetworkManager, wallpaper switching, offline documentation, battery, sound, conky, screen lock, theme and keyboard in Kantele, the console-only entry, `nomodeset` (after D23), TTY switching and logout on a normal boot, and persistence. **Machines:** the legacy BIOS Toshiba is the only one on record; the T480s with Libreboot from the original plan is not confirmed as tested.
 - **`nomodeset` under UEFI:** untested. A VM with OVMF and a direct kernel boot did not reach the login.
 - **MD RAID read-only assembly** (`mdadm --assemble --readonly`): documented but not tested.
 - **Phase-5 T6 case** (wasp login ending in pwm): not reproduced in 9 runs with greetd logging to `/var/log/greetd` (the harness now sets that up). Treated as unexplained, not fixed.
