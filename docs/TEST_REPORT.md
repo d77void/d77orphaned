@@ -109,10 +109,20 @@ The user booted the ISO on real hardware and reported: missing desktop basics (b
 - **Power cut with the partition open (VM):** existing files and a file written with `sync` survive; a file written without `sync`, though listed by `ls`, is lost; the file system mounts normally. On real hardware (the Toshiba, forced power-off during the black screen below) nothing already saved was lost.
 - **Real hardware:** works, according to the user, including reopening after a deliberately failed close. Not confirmed separately: wasp and Utumno picking up restored settings at the next login.
 
+## `nomodeset`: black screen on a legacy BIOS machine (2026-11-08, D23)
+
+On a Toshiba with Intel HD 4000 and legacy BIOS, Xorg runs on the `vesa` driver (VBE 3.0). Leaving pwm **and** switching to a TTY with `Ctrl+Alt+F2` from inside pwm both left a black screen that only the power button got out of: the video BIOS apparently cannot switch modes back. QEMU's video BIOS does not reproduce this.
+
+Fix: with `nomodeset`, X no longer ends on its own (`pwm-session.sh` restarts pwm, and gives up after 5 quick failures) and `DontVTSwitch` turns `Ctrl+Alt+Fn` off. Power off with pwm's menu.
+
+- **ISO:** `d77orphaned-live-x86_64-20261108.iso`, 2,063,034,368 bytes, sha256 `98b05ca43a8661c01d2125c547aa58947f6c12863a4877578f26ab91f1549b7d`; host `grub.cfg` unchanged.
+- **VM, `nomodeset`: PASS.** Killing pwm starts a new pwm under the same Xorg, with no background program started twice; `Ctrl+Alt+F2` stays on VT 7; `loginctl poweroff` (what the menu runs) powers off. It refuses while another user is logged in (root on the test's serial console), and pwm's menu shows no message when that happens.
+- **VM, normal boot: unchanged.** `Ctrl+Alt+F2` switches, and leaving pwm brings up the greeter.
+
 ## Open
 
 - **T12 real hardware:** confirmed by the user (2026-11-08): boot, both sessions, Wi-Fi with NetworkManager, wallpaper switching in Utumno, the offline documentation (`d77-docs`), battery, sound, conky, screen lock, theme change and keyboard layout in Kantele, the console-only entry, and persistence (`d77-persist`, including reopening after a deliberately failed close). The `nomodeset` entry boots to pwm, **but see the next item**.
-- **`nomodeset`, black screen after leaving pwm (real hardware, open):** on a Toshiba with legacy BIOS, leaving pwm ends in a black screen; `Ctrl+Alt+F2` and the other TTYs do not bring anything back, and only the power button gets out of it. In QEMU with SeaBIOS the text login (`agreety`) appears as it should. Xorg's vesa driver asks the machine's video BIOS to restore the mode on exit, which may be the difference (unverified), and whether the machine hangs or only the display is lost is unknown. `nomodeset` under UEFI is untested: a VM with OVMF and a direct kernel boot did not reach the login.
+- **`nomodeset` on real hardware:** the fix below still has to be confirmed on the Toshiba. `nomodeset` under UEFI is untested: a VM with OVMF and a direct kernel boot did not reach the login.
 - **MD RAID read-only assembly** (`mdadm --assemble --readonly`): documented but not tested.
 - **Phase-5 T6 case** (wasp login ending in pwm): not reproduced in 9 runs with greetd logging to `/var/log/greetd` (the harness now sets that up). Treated as unexplained, not fixed.
 - **Cosmetic:**

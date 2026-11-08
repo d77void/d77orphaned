@@ -167,6 +167,8 @@ _include_base() {
 		"$INCLUDEDIR"/etc/d77orphaned/pwm-startup.sh
 	install -Dm755 ./common/d77orphaned/wasp-wallpaper.sh \
 		"$INCLUDEDIR"/etc/d77orphaned/wasp-wallpaper.sh
+	install -Dm755 ./common/d77orphaned/pwm-session.sh \
+		"$INCLUDEDIR"/etc/d77orphaned/pwm-session.sh
 	# Optional encrypted persistence on the stick (D22). Nothing runs it at boot.
 	install -Dm755 ./common/d77orphaned/d77-persist "$INCLUDEDIR"/usr/bin/d77-persist
 	# greetd sources /etc/profile (and so profile.d) before each session.
