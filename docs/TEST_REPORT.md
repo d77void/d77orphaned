@@ -120,12 +120,12 @@ Fix: with `nomodeset`, X no longer ends on its own (`pwm-session.sh` restarts pw
 - **VM, normal boot: unchanged.** `Ctrl+Alt+F2` switches, and leaving pwm brings up the greeter.
 - **Real hardware (the Toshiba, user, 2026-11-08): PASS.** No more black screen: `logout` in pwm's menu appears to do nothing (pwm restarts at once under the same X, and windows stay), `Ctrl+Alt+F2` does nothing, and `reboot` and `shutdown` work.
 
-## First published ISO (2026-11-08)
+## Published ISO (2026-11-08)
 
-Published to the `ISO-x86_64` folder on SourceForge as a prototype, with its `.iso.sha256` and `.SOURCES.txt`; `iso.sh` confirmed the copies match.
+Published to the `ISO-x86_64` folder on SourceForge as a prototype, with its `.iso.sha256` and `.SOURCES.txt`; `iso.sh` confirmed the copies match. It replaces an upload from earlier the same day with the same name (sha256 `13afb7b1…931a`, without `nwipe` and `parallel`).
 
-- **ISO:** `d77orphaned-live-x86_64-20261108.iso`, 2,063,388,672 bytes, sha256 `13afb7b172e630b9d9b6dece8e266f60f067eacfb1117d981ad4c025ba7b931a`. Built from d77orphaned `1ed3e28b` and orphaned-docs `ad70ff7`, from the SourceForge d77void repository; host `grub.cfg` unchanged.
-- **Tests on this exact ISO (VM):** T7 (2006 executables, 0 failures), T8 (8 disks unchanged), persistence (21/21), sessions (wasp, Utumno, Kantele on Wayland). Real-hardware tests were done on the previous builds, which differ only in documentation.
+- **ISO:** `d77orphaned-live-x86_64-20261108.iso`, 2,063,949,824 bytes, sha256 `c84d919eedc5e12deb8c835c18f60be62a51710d60ae8bd64cc0605e31b3c09f`. Built from d77orphaned `b747ec42` and orphaned-docs `307bce4`, from the SourceForge d77void repository; host `grub.cfg` unchanged.
+- **Tests on this exact ISO (VM):** T7 (2007 executables, 0 failures). The previous build, with the same packages and older documentation, passed T8 and the `nwipe` tests; persistence passed 21/21 on the one before, without `nwipe` and `parallel`. Real-hardware tests were on those previous builds.
 
 ## Secure erasure (2026-11-08, D24)
 
@@ -140,7 +140,7 @@ Published to the `ISO-x86_64` folder on SourceForge as a prototype, with its `.i
 
 ## Open
 
-- **T12 real hardware:** done by the user (2026-11-08), with no open failures: boot, both sessions, Wi-Fi with NetworkManager, wallpaper switching, offline documentation, battery, sound, conky, screen lock, theme and keyboard in Kantele, the console-only entry, `nomodeset` (after D23), TTY switching and logout on a normal boot, and persistence. **Machines:** the legacy BIOS Toshiba is the only one on record; the T480s with Libreboot from the original plan is not confirmed as tested.
+- **T12 real hardware:** done by the user (2026-11-08), with no open failures: boot, both sessions, Wi-Fi with NetworkManager, wallpaper switching, offline documentation, battery, sound, conky, screen lock, theme and keyboard in Kantele, the console-only entry, `nomodeset` (after D23), TTY switching and logout on a normal boot, and persistence. **Machines:** a Toshiba with legacy BIOS and a T480s with Libreboot. On the T480s the stick boots with both the SeaBIOS and the GRUB payloads, with the persistence partition added, and persistence works in both (user).
 - **`nomodeset` under UEFI:** untested. A VM with OVMF and a direct kernel boot did not reach the login.
 - **Sony Vaio (Core 2 Duo P8400, old nVidia):** intermittent segmentation faults in `su` and `sudo nwipe`, then `SQUASHFS error: Unable to read page` and `exec: dwl: Input/output error`: the system is failing to read the stick, which works on the Toshiba and was verified by hash. The USB port, power or memory on that laptop are suspected; not confirmed. Not an ISO defect as far as is known. Another port was being tried.
 - **ThinkPad X61:** planned by the user, not tested yet.
