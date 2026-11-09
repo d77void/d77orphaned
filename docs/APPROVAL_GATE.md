@@ -88,6 +88,8 @@ Notes in *italics* record how phase 5 actually implemented or changed an item.
 | `orca` | +373 MiB; graphical accessibility deferred |
 | `bulk_extractor`, `dc3dd` | not in Void; not porting |
 
+*Section 3 was reviewed by D25 (`docs/BASELINE_AUDIT.md`): `exiftool`, `yara`, `testssl.sh` and `ssh-audit` are in the image; `wireshark`, `termshark` and `john` are documented and installed when needed.*
+
 ## 5. What is reused from d77void and how
 
 | Origin (commit `c567d0cf`) | How | Planned local changes in `d77orphaned` |

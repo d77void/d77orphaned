@@ -141,6 +141,9 @@ PKGS_TOOLS="$PKGS_TOOLS fuse-sshfs nfs-utils cifs-utils hexedit ltrace binwalk z
 # D24: secure erasure. Nothing runs them on its own; nwipe refuses devices in
 # use, which includes the boot stick.
 PKGS_TOOLS="$PKGS_TOOLS nwipe parallel"
+# D25: repairing systems and more recovery. grub and grub-x86_64-efi: repair boot
+# loaders (their kernel hook does nothing while /boot/grub does not exist, as here).
+PKGS_TOOLS="$PKGS_TOOLS grub grub-x86_64-efi restic borg exiftool yara gparted testssl.sh ssh-audit flashrom i2c-tools"
 
 # acpi-gpe-guard is not a package: its service dir is placed by
 # _include_base and linked into runsvdir there, not via -S.

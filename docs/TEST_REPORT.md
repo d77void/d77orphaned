@@ -138,14 +138,42 @@ Published to the `ISO-x86_64` folder on SourceForge as a prototype, with its `.i
 - **Real hardware (user):** `nwipe` works on the Toshiba with a disposable stick. Its screen is unreadable in pwm's `st` (Dracula colours and transparency compiled into `d77-st`) and readable in wasp's `alacritty`.
 - **Not tested:** `hdparm` security erase, `nvme sanitize`/`format` and `sg_sanitize` on real drives (only their options were checked against the tools in the ISO).
 
+## Repair, backups and emergency procedures (2026-11-09, D25)
+
+- **ISO:** `d77orphaned-live-x86_64-20261109.iso`, 2107467776 bytes, sha256 `57d76744c192752e83676ccd8756ee6cedb11e4f11be719e304365be19e6aea6`. Built from orphaned-docs `9cc048b`, with this repository's changes for D25; host `grub.cfg` unchanged.
+- **All tests below ran on this exact ISO, in VMs, on disposable disks:**
+
+| Test | Result | Notes |
+|---|---|---|
+| T7 | **PASS** | 2036 ELF executables, 0 failures |
+| T8/T9 | **PASS** | 8 test disks unchanged after a full boot with a graphical session |
+| Persistence | **PASS** | 21/21, BIOS and UEFI |
+| Boot repair | **PASS** | `tests/repair-test.py`, 8/8 on plain ext4 and 8/8 on LUKS2 + LVM with a separate `/boot`: install Void, boot, destroy the boot loader, confirm it no longer boots, repair with `xchroot`, boot with BIOS and UEFI |
+| Emergency procedures | **PASS** | `tests/emergency-test.py`, 0 failures: `ddrescue` on a disk with 64 unreadable sectors (device-mapper), deleted GPT and MBR partitions restored through TestDisk's real menus, a move to a bigger disk, and an installed system moved and booted with BIOS and UEFI |
+| Boot menus | **PASS** | The *(firmware tools)* entry is in the isolinux and GRUB menus, with `iomem=relaxed` only there |
+
+Also in a VM, on the previous build with the same packages:
+
+- **`restic`, `borg`:** repository created, backup, restore with identical hashes, mount, check. **`exiftool`, `yara`:** the documented commands. **`flashrom -p internal`:** with `iomem=relaxed`, "No EEPROM/flash device found", expected in QEMU.
+- **`gparted`:** opens in pwm and in wasp; a disk with ext4, swap, LUKS and LVM stayed identical, byte for byte, with nothing mounted or activated. In wasp, `sudo gparted` fails with `cannot open display`; `sudo -E gparted` works in both, so that is what is documented.
+- **Installed when needed:** `rclone`, `wireshark`, `termshark`, `john`, `clamav` install on the live system (about 770 MB of RAM together, signatures included). `tshark` read a capture, `john` found a test password, `freshclam` updated and `clamscan` detected EICAR. `rclone` and `termshark`: help only.
+
+### Found by these tests
+
+- **TestDisk on an empty GPT:** with no partitions left, it proposes *Intel* (MBR); accepting would replace the GPT. The documentation warns and says to choose *EFI GPT*.
+- **`xbps-pkgdb -a` reports `fuse-exfat: dependency not satisfied: exfat-utils`:** `exfatprogs` is installed instead, and `mount.exfat-fuse` is present with all its libraries. It did not stop the packages above from installing. Present since D18; not fixed.
+
 ## Open
 
 - **T12 real hardware:** done by the user (2026-11-08), with no open failures: boot, both sessions, Wi-Fi with NetworkManager, wallpaper switching, offline documentation, battery, sound, conky, screen lock, theme and keyboard in Kantele, the console-only entry, `nomodeset` (after D23), TTY switching and logout on a normal boot, and persistence. **Machines:** a Toshiba with legacy BIOS and a T480s with Libreboot. On the T480s the stick boots with both the SeaBIOS and the GRUB payloads, with the persistence partition added, and persistence works in both (user).
 - **`nomodeset` under UEFI:** untested. A VM with OVMF and a direct kernel boot did not reach the login.
 - **Sony Vaio (Core 2 Duo P8400, old nVidia):** intermittent segmentation faults in `su` and `sudo nwipe`, then `SQUASHFS error: Unable to read page` and `exec: dwl: Input/output error`: the system is failing to read the stick, which works on the Toshiba and was verified by hash. The USB port, power or memory on that laptop are suspected; not confirmed. Not an ISO defect as far as is known. Another port was being tried.
 - **ThinkPad X61:** planned by the user, not tested yet.
+- **`flashrom` on real hardware:** not tested; the *(firmware tools)* entry was only checked to boot with the parameter in a VM. Whether a Libreboot or coreboot machine allows internal access is unknown.
+- **Boot repair on real firmware, other distributions, encrypted `/boot`, dual-boot:** not tested. **BitLocker:** not tested; no test disk.
+- **d77-persist on the pen:** writing a new ISO removes the old persistence partition, by the user's choice (D22).
 - **MD RAID read-only assembly** (`mdadm --assemble --readonly`): documented but not tested.
 - **Phase-5 T6 case** (wasp login ending in pwm): not reproduced in 9 runs with greetd logging to `/var/log/greetd` (the harness now sets that up). Treated as unexplained, not fixed.
 - **Cosmetic:**
   - on wasp with software rendering, the background shows leftovers of the greeter, and there is a black block left of Utumno's bar;
-- **Size:** the ISO is 2.06 GB (1.6 GiB before D17/D18), well above the gate's 0.9–1.1 GiB estimate; Mullvad Browser (350 MB installed) and Papirus (117 MB) are the largest additions.
+- **Size:** the ISO is 2.11 GB (2.06 GB before D25; 1.6 GiB before D17/D18), well above the gate's 0.9–1.1 GiB estimate; Mullvad Browser (350 MB installed) and Papirus (117 MB) are the largest additions.

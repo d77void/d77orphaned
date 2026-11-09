@@ -39,7 +39,7 @@ d77orphaned is a **live recovery, diagnostics and analysis system** based on **V
 
 ## Initial scope
 
-Data recovery, disk and filesystem diagnostics, boot/EFI inspection, emergency networking and a limited set of analysis and authorized security-testing tools. The final list depends on the research; names suggested in the documents are **candidates, not confirmed packages**.
+Data recovery and backups, disk and filesystem diagnostics, boot loader repair, secure erasure, emergency networking and a limited set of analysis and authorized security-testing tools. The list is in `docs/PACKAGE_INVENTORY.md`, decisions in `docs/BASELINE_AUDIT.md`. The documentation has step-by-step [emergency procedures](https://d77void.github.io/orphaned-docs/emergency/index.html).
 
 ## Out of scope for the PoC
 
@@ -94,3 +94,5 @@ Check the build output for the documentation inclusion confirmation before distr
 ## Testing
 
 `tests/qemu-harness.py` (host, QEMU; KVM optional) runs the test plan scenarios; `tests/check-tools.sh` and `tests/integrity-*.sh` run inside the VM. The integrity tests create and destroy **disposable** disks in the working directory; never run `integrity-prepare.sh` on real hardware.
+
+`tests/persist-test.py`, `tests/repair-test.py` and `tests/emergency-test.py` run from the host, on disposable disks in their working directory, and test persistence, boot loader repair (plain and with `--luks`) and the emergency procedures. `repair-test.py --cache xbps-cachedir-x86_64` reuses the build's packages instead of downloading a whole system.

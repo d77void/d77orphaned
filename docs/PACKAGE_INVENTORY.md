@@ -35,16 +35,16 @@
 
 | Capability | Exact package (origin) | +deps | Status | Proposed decision / notes |
 |---|---|---|---|---|
-| CLI traffic capture | `wireshark` (Void, CLI package; **there is no `tshark`**) | +41·206M | FOUND | DEFER; `tcpdump` covers the PoC |
-| TUI capture | `termshark` | +42·223M | FOUND | DEFER |
+| CLI traffic capture | `wireshark` (Void, CLI package; **there is no `tshark`**) | +41·206M | FOUND | DEFER; `tcpdump` covers the PoC *(D25: documented, installed when needed)* |
+| TUI capture | `termshark` | +42·223M | FOUND | DEFER *(D25: documented, installed when needed)* |
 | Wireshark GUI | `wireshark-qt` | **+225·649M** | FOUND | EXCLUDE in the PoC |
-| Advanced metadata | `bulk_extractor` | — | **MISSING** | DEFER (would be a port) |
-| Integrity/AFF | `afflib` `yara` `binwalk` | ≤ +15·10M | FOUND | DEFER |
+| Advanced metadata | `bulk_extractor` | — | **MISSING** | DEFER (would be a port) *(D25: rejected)* |
+| Integrity/AFF | `afflib` `yara` `binwalk` | ≤ +15·10M | FOUND | DEFER *(`afflib`, `binwalk`: D18; `yara`: D25, in the image)* |
 | Web auditing | `nikto` `sqlmap` | +7·77M / +5·37M | FOUND | DEFER |
-| Passwords | `john` / `hashcat` | +51M / **+149M** | FOUND | `john` DEFER; `hashcat` EXCLUDE (no GPU in the live system) |
+| Passwords | `john` / `hashcat` | +51M / **+149M** | FOUND | `john` DEFER *(D25: documented, installed when needed)*; `hashcat` EXCLUDE (no GPU in the live system) |
 | Service brute force | `thc-hydra` (**not `hydra`**) | +6·30M | FOUND | DEFER |
 | Host auditing | `lynis` `rkhunter` `chkrootkit` | +1·2M / +17·83M / +19·49M | FOUND | `lynis` INCLUDE [PROP]; the others DEFER |
-| TLS / SSH | `testssl.sh` `ssh-audit` | +16·17M / +5·25M | FOUND | DEFER |
+| TLS / SSH | `testssl.sh` `ssh-audit` | +16·17M / +5·25M | FOUND | DEFER *(D25: in the image)* |
 | L2 discovery | `arp-scan` | +1·2M | FOUND | INCLUDE [PROP] |
 | Shares | `fuse-sshfs` (**not `sshfs`**) `nfs-utils` `cifs-utils` | +4·15M / +7·5M / +27·63M | FOUND | DEFER |
 | VPN | `wireguard-tools` | +2·0M | FOUND | DEFER |
@@ -149,7 +149,7 @@ Sizes are installed sizes of the package alone, not counting dependencies.
 |---|---|
 | `srm` `wipe` | destructive by nature (`nwipe` joined by D24) |
 | `udisks2` `udiskie` `gvfs` | automounting (integrity policy) |
-| `fwupd` | writes device firmware; not a default in a forensic ISO |
+| `fwupd` | writes device firmware; not a default in a forensic ISO; requires `udisks2` (checked for D25) |
 | `gcc` (234 MB), `edk2-ovmf` (154 MB), `qemu` | size / out of scope |
 | `debootstrap` `rinse` `mmdebstrap` | install Debian/RPM systems |
 | `open-vm-tools` `qemu-ga` | guest agents, not for a rescue system |
@@ -161,3 +161,24 @@ Not in Void under any name found: `partimage`, `clonezilla`, `hping3`, `autopsy`
 **Estimate:** A ≈ 60 MB, B ≈ 70 MB of the packages themselves, plus dependencies; to be measured by a build.
 
 **Decided (D18, 2026-11-08):** A and B approved by the user, `mc` kept although `ranger` is in. Removed from B on review: `dmraid` (runit's `03-filesystems.sh` runs `dmraid -i -ay` at boot whenever it is installed) and `bcache-tools` (its udev rule and dracut module register bcache devices on their own). Added for the pwm session: `d77-slock`, `xautolock`, `xcompmgr` (D19). Measured: ISO 2.06 GB (from 1.9 GB with D17 only, 1.7 GB before).
+
+## Decided for D25 (2026-11-09)
+
+Checked read-only against `current`, `current/nonfree` and the d77void repository, x86_64; sizes installed, with new dependencies, against the ISO of 2026-11-08.
+
+| Package | Size | Decision |
+|---|---|---|
+| `grub` + `grub-x86_64-efi` | 29 MB + 4 MB | image: boot repair |
+| `restic` / `borg` | 41 MB / 11 MB (10 new `python3-*`) | image |
+| `exiftool` / `yara` | 23 MB / 1 MB | image |
+| `gparted` | 16 MB (6 new, gtkmm) | image |
+| `testssl.sh` / `ssh-audit` | 4 MB / 1 MB | image |
+| `flashrom` / `i2c-tools` | 3 MB / 0.3 MB | image |
+| `rclone` | 106 MB | documented; installed when needed |
+| `wireshark` + `termshark` | 158 MB + 17 MB | documented; installed when needed |
+| `john` | 51 MB | documented; installed when needed |
+| `clamav` | 182 MB + signatures | documented; installed when needed |
+| `fwupd` | 24 MB, pulls `udisks2` | rejected |
+| `bulk_extractor`, `clonezilla` | not in Void | rejected; no ports |
+
+New packages in the image: 31, of which 0 are ports. The five left out were installed in a live VM and took about 770 MB of RAM together, signatures included.

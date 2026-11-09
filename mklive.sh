@@ -314,7 +314,10 @@ EOF
         # entries; accessibility packages are not part of the PoC.
         write_entry "${ENTRY_TITLE} (console only)" "linuxnogui${id_sfx}" \
             "d77.nogui $BOOT_CMDLINE $cmdline" "$dtb" 'c'
-
+        # d77orphaned: flashrom's internal programmer needs this kernel's
+        # strict /dev/mem relaxed. Only this entry does it (D25).
+        write_entry "${ENTRY_TITLE} (firmware tools)" "linuxfirmware${id_sfx}" \
+            "iomem=relaxed $BOOT_CMDLINE $cmdline" "$dtb"
     }
 
     write_entries

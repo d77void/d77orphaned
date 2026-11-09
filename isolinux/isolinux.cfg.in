@@ -40,6 +40,11 @@ MENU LABEL @@BOOT_TITLE@@ @@KERNVER@@ @@ARCH@@ (^console only)
 KERNEL /boot/vmlinuz
 APPEND initrd=/boot/initrd root=live:CDLABEL=D77ORPHANED init=/sbin/init ro rd.luks=0 rd.md=0 rd.dm=0 rd.lvm=0 loglevel=4 vconsole.unicode=1 vconsole.keymap=@@KEYMAP@@ locale.LANG=@@LOCALE@@ @@BOOT_CMDLINE@@ d77.nogui
 
+LABEL linuxfirmware
+MENU LABEL @@BOOT_TITLE@@ @@KERNVER@@ @@ARCH@@ (firmware tools)
+KERNEL /boot/vmlinuz
+APPEND initrd=/boot/initrd root=live:CDLABEL=D77ORPHANED init=/sbin/init ro rd.luks=0 rd.md=0 rd.dm=0 rd.lvm=0 loglevel=4 vconsole.unicode=1 vconsole.keymap=@@KEYMAP@@ locale.LANG=@@LOCALE@@ @@BOOT_CMDLINE@@ iomem=relaxed
+
 LABEL c
 MENU LABEL Boot first HD found by BIOS
 COM32 chain.c32
