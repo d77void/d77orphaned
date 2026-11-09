@@ -158,6 +158,8 @@ Also in a VM, on the previous build with the same packages:
 - **`gparted`:** opens in pwm and in wasp; a disk with ext4, swap, LUKS and LVM stayed identical, byte for byte, with nothing mounted or activated. In wasp, `sudo gparted` fails with `cannot open display`; `sudo -E gparted` works in both, so that is what is documented.
 - **Installed when needed:** `rclone`, `wireshark`, `termshark`, `john`, `clamav` install on the live system (about 770 MB of RAM together, signatures included). `tshark` read a capture, `john` found a test password, `freshclam` updated and `clamscan` detected EICAR. `rclone` and `termshark`: help only.
 
+Published to the `ISO-x86_64` folder on SourceForge as a prototype, with its `.iso.sha256` and `.SOURCES.txt`; `iso.sh` confirmed the copies match. The 2026-11-08 upload was deleted from there, at the user's request. Written to the user's USB stick and read back identical. **Not yet booted on real hardware:** the user plans that on the X61 and the Librebox.
+
 ### Found by these tests
 
 - **TestDisk on an empty GPT:** with no partitions left, it proposes *Intel* (MBR); accepting would replace the GPT. The documentation warns and says to choose *EFI GPT*.
